@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nexo
+          POSTGRES_PASSWORD: nexo
+          POSTGRES_DB: nexo_erp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://nexo:nexo@localhost:5432/nexo_erp?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Prisma generate y migraciones
+        run: |
+          pnpm --filter @nexo/api db:generate
+          pnpm --filter @nexo/api db:deploy
+      - name: Lint y tipos
+        run: pnpm typecheck
+      - name: Pruebas (incluye cálculo de totales y aislamiento por tenant)
+        run: pnpm test
+      - name: Build
+        run: pnpm build

@@ -1,0 +1,19 @@
+{
+  "name": "nexo-tic-erp",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "dev:db": "docker compose up -d db",
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "db:migrate": "pnpm --filter @nexo/api db:migrate",
+    "db:seed": "pnpm --filter @nexo/api db:seed"
+  }
+}

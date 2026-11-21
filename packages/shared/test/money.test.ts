@@ -1,0 +1,48 @@
+import { describe, expect, it } from "vitest";
+import { aplicarTasaPb, calcularTotales, formatearMXN, importeLinea } from "../src/money.js";
+
+describe("aplicarTasaPb", () => {
+  it("calcula IVA 16% sobre 100.00 MXN", () => {
+    expect(aplicarTasaPb(10000, 1600)).toBe(1600);
+  });
+  it("redondea mitad hacia arriba", () => {
+    // 0.5 centavos -> 1
+    expect(aplicarTasaPb(5, 1000)).toBe(1);
+    // 0.4 centavos -> 0
+    expect(aplicarTasaPb(4, 1000)).toBe(0);
+  });
+  it("rechaza decimales", () => {
+    expect(() => aplicarTasaPb(10.5, 1600)).toThrow(RangeError);
+  });
+});
+
+describe("importeLinea", () => {
+  it("multiplica precio por cantidad en milésimas", () => {
+    // 2.5 horas a $300.00
+    expect(importeLinea(30000, 2500)).toBe(75000);
+  });
+});
+
+describe("calcularTotales", () => {
+  it("suma líneas, aplica descuento antes de IVA", () => {
+    const t = calcularTotales([
+      { precioUnitarioCentavos: 30000, cantidadMilesimas: 2500, descuentoPb: 1000 }, // 750.00 - 10%
+      { precioUnitarioCentavos: 10000, cantidadMilesimas: 1000 }, // 100.00
+    ]);
+    expect(t.subtotalCentavos).toBe(85000);
+    expect(t.descuentoCentavos).toBe(7500);
+    expect(t.baseGravableCentavos).toBe(77500);
+    expect(t.ivaCentavos).toBe(12400);
+    expect(t.totalCentavos).toBe(89900);
+  });
+  it("lista vacía da ceros", () => {
+    expect(calcularTotales([]).totalCentavos).toBe(0);
+  });
+});
+
+describe("formatearMXN", () => {
+  it("formatea centavos para vista", () => {
+    expect(formatearMXN(123456)).toBe("$1,234.56");
+    expect(formatearMXN(5)).toBe("$0.05");
+  });
+});

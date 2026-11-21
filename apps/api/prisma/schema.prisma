@@ -1,0 +1,32 @@
+// Esquema base. Todo cambio de modelo se hace con una migración de Prisma:
+//   pnpm --filter @nexo/api db:migrate
+// Ningún cambio de base de datos se hace a mano.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Empresa cliente del SaaS. Raíz del aislamiento: toda tabla de negocio lleva tenantId.
+model Tenant {
+  id        String   @id @default(cuid())
+  nombre    String
+  creadoEn  DateTime @default(now())
+  usuarios  Usuario[]
+}
+
+model Usuario {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  email     String
+  nombre    String
+  creadoEn  DateTime @default(now())
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
