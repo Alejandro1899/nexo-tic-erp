@@ -1,0 +1,62 @@
+:root { font-family: system-ui, sans-serif; color: #1b2430; background: #f5f7fa; }
+body { margin: 0; min-width: 320px; }
+*, *::before, *::after { box-sizing: border-box; }
+.app header { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.5rem; padding: 0.75rem 1rem; background: #0b1f3a; color: #fff; }
+.app header nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
+.app header nav a { color: #cfe0ff; text-decoration: none; white-space: nowrap; }
+.app header nav a.active { color: #fff; font-weight: 600; }
+.app .usuario { margin-left: auto; display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; font-size: 0.9rem; }
+main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
+.barra { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 1rem; }
+.barra h2 { margin: 0; flex: 1 1 auto; }
+.barra input, .barra select { max-width: 100%; }
+table { width: 100%; border-collapse: collapse; background: #fff; }
+/* Tablas anchas: se desplazan dentro de su propio contenedor, nunca rompen la página */
+main table { display: block; overflow-x: auto; white-space: nowrap; }
+@media (min-width: 900px) { main { padding: 1.5rem 2rem; } }
+th, td { text-align: left; padding: 0.6rem; border-bottom: 1px solid #e3e8ef; }
+tr.fila { cursor: pointer; }
+tr.fila:hover { background: #eef4ff; }
+.tarjeta { background: #fff; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; }
+label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; }
+label.check { flex-direction: row; align-items: center; }
+input, select { max-width: 100%; padding: 0.45rem; border: 1px solid #c5ced9; border-radius: 6px; font: inherit; }
+button { padding: 0.45rem 0.9rem; border: 0; border-radius: 6px; background: #0b5cd5; color: #fff; cursor: pointer; font: inherit; }
+button[type="button"] { background: #e3e8ef; color: #1b2430; }
+button:disabled { opacity: 0.6; }
+.acciones { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+.error { color: #b42318; }
+.centro { text-align: center; margin-top: 3rem; }
+.login { width: calc(100% - 2rem); max-width: 360px; margin: 3rem auto; background: #fff; padding: 2rem; border-radius: 10px; }
+.login form { display: flex; flex-direction: column; gap: 0.75rem; }
+
+/* Insignias de estado (ALCANCE 4.12) */
+.badge { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: #1a1a1a; margin-left: 0.4rem; }
+.badge-verde { background: #c8f2d2; color: #0f5a25; }
+.badge-amarillo { background: #fff1b8; color: #6b5300; }
+.badge-azul { background: #cfe3ff; color: #123f7a; }
+.badge-rojo { background: #ffd0d0; color: #7a1414; }
+.badge-gris { background: #e3e3e3; color: #444; }
+.badge-ambar { background: #ffdca8; color: #7a4a00; }
+/* Ficha de detalle */
+.detalle { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1rem; }
+.detalle dt { font-weight: 600; }
+.detalle dd { margin: 0; }
+.barra .badge { margin-left: 0; }
+@media (max-width: 600px) { .detalle { grid-template-columns: 1fr; } }
+
+/* Inicio: indicadores y gráficas */
+.indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; margin: 1rem 0; }
+.indicador { background: #fff; border-radius: 10px; padding: 0.9rem 1rem; box-shadow: 0 1px 2px rgba(0,0,0,0.06); display: flex; flex-direction: column; gap: 0.2rem; }
+.indicador-titulo { font-size: 0.8rem; color: #5b6472; }
+.indicador-valor { font-size: 1.35rem; color: #111827; }
+.indicador small { color: #6b7280; }
+.graficas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0.75rem; }
+.grafica-ancha { grid-column: 1 / -1; }
+.listas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0.75rem; margin-top: 0.75rem; }
+.lista-simple { list-style: none; padding: 0; margin: 0; }
+.lista-simple li { padding: 0.35rem 0; border-bottom: 1px solid #eef0f3; }
+
+/* Tablas anchas dentro de un contenedor con desplazamiento horizontal */
+.tabla-scroll { overflow-x: auto; max-width: 100%; }
