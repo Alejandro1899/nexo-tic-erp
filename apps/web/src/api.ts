@@ -13,12 +13,18 @@ interface Opciones {
   body?: unknown;
 }
 
-/** Cliente HTTP mínimo. La cookie de sesión viaja sola (mismo origen, vía proxy de Vite). */
+/**
+ * URL base del API. En desarrollo va vacía (el proxy de Vite reenvía /api).
+ * En producción se define en build con VITE_API_URL, p. ej. https://api.tudominio.com.
+ */
+const BASE_API = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+
+/** Cliente HTTP mínimo. La cookie de sesión viaja con cada petición (credentials: include). */
 export async function api<T>(ruta: string, opciones: Opciones = {}): Promise<T> {
   const tieneCuerpo = opciones.body !== undefined;
-  const res = await fetch(ruta, {
+  const res = await fetch(`${BASE_API}${ruta}`, {
     method: opciones.method ?? (tieneCuerpo ? "POST" : "GET"),
-    credentials: "same-origin",
+    credentials: "include",
     headers: tieneCuerpo ? { "Content-Type": "application/json" } : undefined,
     body: tieneCuerpo ? JSON.stringify(opciones.body) : undefined,
   });
