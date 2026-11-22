@@ -77,7 +77,10 @@ function vencimientoEn(dias: number): Date {
   return new Date(Date.now() + dias * 24 * 60 * 60 * 1000);
 }
 
-/** Folio consecutivo por año: COT-2026-0001. Se llama dentro de una transacción. */
+/**
+ * Folio consecutivo por año: COT-2026-0001 (el prefijo lo define la configuración de la empresa).
+ * El contador es el mismo aunque cambie el prefijo. Se llama dentro de una transacción.
+ */
 async function siguienteFolio(tx: Prisma.TransactionClient): Promise<string> {
   const anio = new Date().getFullYear();
   const consecutivo = await tx.consecutivo.upsert({
@@ -85,7 +88,9 @@ async function siguienteFolio(tx: Prisma.TransactionClient): Promise<string> {
     create: { tipo: "COT", anio, valor: 1 },
     update: { valor: { increment: 1 } },
   });
-  return `COT-${anio}-${String(consecutivo.valor).padStart(4, "0")}`;
+  const config = await tx.configuracionEmpresa.findUnique({ where: { id: "empresa" }, select: { prefijoFolioCotizacion: true } });
+  const prefijo = config?.prefijoFolioCotizacion ?? "COT";
+  return `${prefijo}-${anio}-${String(consecutivo.valor).padStart(4, "0")}`;
 }
 
 /** Estado que se muestra: una enviada cuya vigencia ya pasó se muestra como vencida. */
