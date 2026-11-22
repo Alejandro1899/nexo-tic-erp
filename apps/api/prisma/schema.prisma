@@ -80,6 +80,8 @@ model Sesion {
 
 model Cliente {
   id                      String            @id @default(cuid())
+  /// Folio legible y consecutivo: CLI-0001.
+  folio                   String            @unique
   nombre                  String
   tipo                    TipoCliente
   estado                  EstadoCliente     @default(EN_REVISION)
@@ -94,6 +96,26 @@ model Cliente {
   actualizadoEn           DateTime          @updatedAt
   serviciosAsignados      ClienteServicio[]
   cotizaciones            Cotizacion[]
+  contactos               Contacto[]
+}
+
+/// Persona de contacto de un cliente. Un cliente puede tener varios; uno puede ser el principal.
+model Contacto {
+  id            String    @id @default(cuid())
+  clienteId     String
+  cliente       Cliente   @relation(fields: [clienteId], references: [id])
+  nombre        String
+  puesto        String?
+  telefono      String?
+  correo        String?
+  /// Solo uno por cliente. La regla se aplica en el servidor, dentro de una transacción.
+  esPrincipal   Boolean   @default(false)
+  creadoPorId   String?
+  eliminadoEn   DateTime?
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+
+  @@index([clienteId])
 }
 
 /// Categoría del catálogo (por ejemplo Soporte, Redes, Desarrollo). Opcional por servicio.

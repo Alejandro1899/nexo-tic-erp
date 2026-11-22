@@ -34,6 +34,26 @@ export const ClienteActualizarSchema = z
   .partial()
   .strict();
 
+/** Teléfono: dígitos con espacios, guiones, paréntesis o "+" inicial; de 7 a 20 caracteres. */
+const telefonoSchema = z
+  .string()
+  .trim()
+  .regex(/^\+?[\d\s()-]{7,20}$/, "Teléfono con formato inválido")
+  .refine((t) => t.replace(/\D/g, "").length >= 7, "El teléfono debe tener al menos 7 dígitos");
+
+/** Contacto de un cliente. Todos los campos de contacto son opcionales, pero el nombre es obligatorio. */
+const camposContacto = {
+  nombre: z.string().trim().min(1, "El nombre del contacto es obligatorio").max(200),
+  puesto: z.string().trim().min(1).max(100).nullable().optional(),
+  telefono: telefonoSchema.nullable().optional(),
+  correo: z.string().trim().toLowerCase().email("Correo de contacto inválido").max(200).nullable().optional(),
+  esPrincipal: z.boolean().optional(),
+};
+
+export const ContactoCrearSchema = z.object(camposContacto).strict();
+
+export const ContactoActualizarSchema = z.object(camposContacto).partial().strict();
+
 export const ServicioCrearSchema = z
   .object({
     nombre: z.string().trim().min(1, "El nombre es obligatorio").max(200),
