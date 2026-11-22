@@ -30,7 +30,7 @@ export async function api<T>(ruta: string, opciones: Opciones = {}): Promise<T> 
   });
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(res.status, data.error ?? "error", data.mensaje ?? "Error del servidor");
+  if (!res.ok) throw new ApiError(res.status, data.error ?? "error", data.mensaje ?? `Error del servidor (HTTP ${res.status})`);
   return data as T;
 }
 
