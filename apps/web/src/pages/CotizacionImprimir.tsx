@@ -126,6 +126,25 @@ export function CotizacionImprimir() {
           <p className="hoja-texto">{empresa.condicionesCotizacion}</p>
         </>
       )}
+
+      <div className="hoja-aceptacion">
+        <h4>Aceptación del cliente</h4>
+        <p>Acepto esta cotización y sus condiciones.</p>
+        <div className="hoja-firmas">
+          <div className="hoja-firma">
+            <div className="hoja-linea" />
+            <span>Nombre y cargo</span>
+          </div>
+          <div className="hoja-firma">
+            <div className="hoja-linea" />
+            <span>Firma</span>
+          </div>
+          <div className="hoja-firma">
+            <div className="hoja-linea" />
+            <span>Fecha</span>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

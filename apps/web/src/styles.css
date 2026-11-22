@@ -75,3 +75,10 @@ button:disabled { opacity: 0.6; }
   a { color: inherit; text-decoration: none; }
   table, tr, td, th { page-break-inside: avoid; }
 }
+
+/* Bloque de aceptación con firma del cliente */
+.hoja-aceptacion { margin-top: 2.5rem; break-inside: avoid; }
+.hoja-firmas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 2.5rem; }
+.hoja-firma { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; }
+.hoja-linea { border-bottom: 1px solid #0b1f3a; height: 2.5rem; }
+@media (max-width: 600px) { .hoja-firmas { grid-template-columns: 1fr; } }

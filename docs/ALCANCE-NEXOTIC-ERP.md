@@ -209,6 +209,12 @@ La interfaz muestra siempre a qué entidad pertenece cada estado, porque "en pro
 4. **Librerías de PDF y de Excel.**
 5. **Reparto de roles técnicos entre los dos socios.**
 6. **Tipo de cobro predeterminado para proyectos nuevos.**
+7. **Anticipo en cotizaciones:** porcentaje elegible por cotización, con 0 % por defecto, calculado sobre el total con IVA. Mostrarlo en el detalle y en la impresión. Confirmar con contador el tratamiento fiscal del anticipo. El registro de pagos queda en cobros (4.7).
+8. **Firma del cliente:** bloque de aceptación impreso en la cotización. La firma digital dentro de la app queda para la v1.5.
+9. **Estado de trabajos por servicio** (en revisión, aprobado, en proceso, terminado): aplica a instalación y mantenimiento, no a venta de hardware. Se ubicará en órdenes de servicio (4.6) o proyectos (4.4), no en la asignación del cliente.
+10. **Costos y utilidad interna:** costo estimado por partida, con utilidad y margen visibles solo para ADMIN y DIRECCION. Nunca aparecen en la impresión. El costo real se compara después contra el registro de horas (4.5).
+11. **Rol de contador (posterior):** solo lectura de cobros, facturación y reportes de ingresos, sin crear ni aprobar cotizaciones. Se define con quien lo usará, porque toca el modelo de usuarios.
+12. **Reportes de ingresos y utilidad:** dependen de cobros (4.7) y de costos reales (4.5). Orden propuesto: cobros y anticipos, luego costos y márgenes, y al final el rol de contador con sus reportes.
 
 ## 12. Impacto en lo ya construido (Sprint 1)
 

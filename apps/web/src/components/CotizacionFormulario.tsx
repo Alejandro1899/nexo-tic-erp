@@ -215,11 +215,24 @@ export function CotizacionFormulario({
                 {l.tipo === "catalogo" ? (
                   <select value={l.servicioId} onChange={(e) => actualizar(l.clave, { servicioId: e.target.value })} required>
                     <option value="">Elige un servicio</option>
-                    {catalogo.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nombre} — {formatearMXN(precioDe.get(s.id) ?? s.tarifaCentavos)}
-                      </option>
-                    ))}
+                    {asignados.length > 0 && (
+                      <optgroup label="Asignados a este cliente">
+                        {asignados.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.nombre} — {formatearMXN(s.tarifaEfectivaCentavos)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label={asignados.length > 0 ? "Otros servicios del catálogo" : "Catálogo"}>
+                      {catalogo
+                        .filter((s) => !asignados.some((a) => a.id === s.id))
+                        .map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.nombre} — {formatearMXN(s.tarifaCentavos)}
+                          </option>
+                        ))}
+                    </optgroup>
                   </select>
                 ) : (
                   <input value={l.descripcion} onChange={(e) => actualizar(l.clave, { descripcion: e.target.value })} required placeholder="Descripción" />
