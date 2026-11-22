@@ -6,7 +6,7 @@ import { useAuth } from "../auth";
 import { CotizacionFormulario } from "../components/CotizacionFormulario";
 import { EstadoCotizacion } from "./Cotizaciones";
 
-interface PartidaDetalle {
+export interface PartidaDetalle {
   id: string;
   orden: number;
   servicioId: string | null;
@@ -18,7 +18,7 @@ interface PartidaDetalle {
   descuentoCentavos: number;
 }
 
-interface CotizacionDetalle {
+export interface CotizacionDetalle {
   id: string;
   folio: string;
   estado: string;
@@ -121,6 +121,7 @@ export function CotizacionDetalle() {
         {esBorrador && puedeGestionar && (
           <button onClick={() => void accion(`/api/cotizaciones/${cotizacion.id}`, "DELETE", "¿Eliminar este borrador?")}>Eliminar</button>
         )}
+        <button onClick={() => navigate(`/cotizaciones/${cotizacion.id}/imprimir`)}>Imprimir PDF</button>
       </div>
 
       {vencida && <p>La vigencia de esta cotización ya venció. Hay que crear una nueva para autorizarla.</p>}

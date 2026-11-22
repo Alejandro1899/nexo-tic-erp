@@ -60,3 +60,18 @@ button:disabled { opacity: 0.6; }
 
 /* Tablas anchas dentro de un contenedor con desplazamiento horizontal */
 .tabla-scroll { overflow-x: auto; max-width: 100%; }
+
+/* Vista de impresión de cotizaciones */
+.hoja { max-width: 760px; background: #fff; padding: 1.5rem; border-radius: 8px; }
+.hoja-encabezado { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; border-bottom: 2px solid #0b1f3a; padding-bottom: 0.75rem; }
+.hoja-encabezado h2 { margin: 0 0 0.25rem; }
+.hoja-logo { max-height: 80px; max-width: 200px; }
+.hoja-titulo { margin: 1rem 0 0.5rem; }
+.hoja-texto { white-space: pre-line; }
+@media print {
+  header, .no-imprimir { display: none !important; }
+  .app, main { padding: 0 !important; background: #fff !important; }
+  .hoja { max-width: none; padding: 0; border-radius: 0; box-shadow: none; }
+  a { color: inherit; text-decoration: none; }
+  table, tr, td, th { page-break-inside: avoid; }
+}

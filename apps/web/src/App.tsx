@@ -12,6 +12,7 @@ import { Usuarios } from "./pages/Usuarios";
 import { UsuarioDetalle } from "./pages/UsuarioDetalle";
 import { Cotizaciones } from "./pages/Cotizaciones";
 import { CotizacionDetalle } from "./pages/CotizacionDetalle";
+import { CotizacionImprimir } from "./pages/CotizacionImprimir";
 import { Configuracion } from "./pages/Configuracion";
 import "./styles.css";
 
@@ -48,6 +49,7 @@ export function App() {
           <Route path="servicios" element={<Servicios />} />
           <Route path="cotizaciones" element={<Cotizaciones />} />
           <Route path="cotizaciones/:id" element={<CotizacionDetalle />} />
+          <Route path="cotizaciones/:id/imprimir" element={<CotizacionImprimir />} />
           <Route
             path="configuracion"
             element={
