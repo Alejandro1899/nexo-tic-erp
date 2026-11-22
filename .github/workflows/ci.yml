@@ -23,9 +23,8 @@ jobs:
       DATABASE_URL: postgresql://nexo:nexo@localhost:5432/nexo_erp?schema=public
     steps:
       - uses: actions/checkout@v4
+      # La versión de pnpm la toma de "packageManager" en package.json (evita versiones contradictorias).
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 20
