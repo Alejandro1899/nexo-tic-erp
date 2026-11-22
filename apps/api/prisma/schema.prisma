@@ -175,6 +175,8 @@ model Cotizacion {
   descuentoCentavos Int                 @default(0)
   ivaCentavos       Int                 @default(0)
   totalCentavos     Int                 @default(0)
+  /// Porcentaje de anticipo en puntos básicos (5000 = 50 %). Se aplica sobre el total con IVA.
+  anticipoPb        Int                 @default(0)
   creadoPorId       String?
   enviadaEn         DateTime?
   autorizadaPorId   String?
@@ -198,6 +200,8 @@ model CotizacionPartida {
   descuentoPb            Int        @default(0)
   importeCentavos        Int
   descuentoCentavos      Int        @default(0)
+  /// Costo estimado unitario, interno (solo ADMIN y DIRECCION lo ven). Null = sin costo capturado.
+  costoUnitarioCentavos  Int?
 }
 
 /// Consecutivo por tipo y año para los folios (COT-2026-0001).

@@ -111,6 +111,14 @@ export function CotizacionImprimir() {
         <dd>
           <strong>{formatearMXN(cotizacion.totalCentavos)}</strong>
         </dd>
+        {cotizacion.anticipoPb > 0 && (
+          <>
+            <dt>Anticipo ({cotizacion.anticipoPb / 100} %)</dt>
+            <dd>{formatearMXN(cotizacion.anticipoCentavos)}</dd>
+            <dt>Saldo</dt>
+            <dd>{formatearMXN(cotizacion.saldoCentavos)}</dd>
+          </>
+        )}
       </dl>
 
       {cotizacion.notas && (

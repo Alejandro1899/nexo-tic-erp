@@ -125,6 +125,8 @@ export const CotizacionPartidaSchema = z
     cantidadMilesimas: z.number().int().positive("La cantidad debe ser mayor a cero").max(1_000_000_000),
     precioUnitarioCentavos: z.number().int().nonnegative().max(2_000_000_000).optional(),
     descuentoPb: z.number().int().min(0).max(10_000).default(0),
+    /** Costo estimado unitario, interno. Solo ADMIN y DIRECCION lo pueden enviar. */
+    costoUnitarioCentavos: z.number().int().nonnegative().max(2_000_000_000).nullable().optional(),
   })
   .strict()
   .superRefine((p, ctx) => {
@@ -141,6 +143,8 @@ export const CotizacionCrearSchema = z
     clienteId: z.string().min(1),
     vigenciaDias: z.number().int().min(1).max(365).default(15),
     notas: z.string().trim().max(2000).nullable().optional(),
+    /** Anticipo en puntos básicos sobre el total con IVA (0 a 100 %). */
+    anticipoPb: z.number().int().min(0).max(10_000).default(0),
     partidas: z.array(CotizacionPartidaSchema).min(1, "La cotización necesita al menos una partida").max(100),
   })
   .strict();
@@ -150,6 +154,7 @@ export const CotizacionActualizarSchema = z
   .object({
     vigenciaDias: z.number().int().min(1).max(365).optional(),
     notas: z.string().trim().max(2000).nullable().optional(),
+    anticipoPb: z.number().int().min(0).max(10_000).optional(),
     partidas: z.array(CotizacionPartidaSchema).min(1, "La cotización necesita al menos una partida").max(100).optional(),
   })
   .strict();

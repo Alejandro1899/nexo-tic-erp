@@ -58,3 +58,21 @@ describe("pesosACentavos", () => {
     expect(() => pesosACentavos("abc")).toThrow(RangeError);
   });
 });
+
+describe("calcularAnticipo", () => {
+  it("calcula el anticipo sobre el total y el saldo con la diferencia", async () => {
+    const { calcularAnticipo } = await import("../src/money.js");
+    expect(calcularAnticipo(313200, 5000)).toEqual({ anticipoCentavos: 156600, saldoCentavos: 156600 });
+  });
+
+  it("con 0 % no hay anticipo y todo es saldo", async () => {
+    const { calcularAnticipo } = await import("../src/money.js");
+    expect(calcularAnticipo(313200, 0)).toEqual({ anticipoCentavos: 0, saldoCentavos: 313200 });
+  });
+
+  it("anticipo más saldo siempre suma el total, aunque redondee", async () => {
+    const { calcularAnticipo } = await import("../src/money.js");
+    const r = calcularAnticipo(100001, 3333);
+    expect(r.anticipoCentavos + r.saldoCentavos).toBe(100001);
+  });
+});

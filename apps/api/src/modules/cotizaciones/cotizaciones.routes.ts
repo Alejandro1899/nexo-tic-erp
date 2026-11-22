@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Prisma } from "@prisma/client";
 import { CotizacionActualizarSchema, CotizacionCrearSchema, type CotizacionPartida } from "@nexo/shared";
-import { aplicarTasaPb, calcularTotales, importeLinea } from "@nexo/shared";
+import { aplicarTasaPb, calcularAnticipo, calcularTotales, importeLinea } from "@nexo/shared";
 import { ruta } from "../../lib/async.js";
 import { prisma } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
@@ -15,6 +15,8 @@ import { requireRole, sesionDe, type SesionAutenticada } from "../../middleware/
  *  - Aprueban o rechazan: ADMIN y DIRECCION, solo las enviadas y vigentes.
  *  - El precio de un servicio del catálogo sale del servidor (tarifa del cliente o del catálogo),
  *    nunca del cuerpo de la petición. Solo las partidas libres llevan precio.
+ *  - Costos, utilidad y margen: solo ADMIN y DIRECCION. Las demás respuestas no los incluyen.
+ *  - Anticipo: porcentaje sobre el total con IVA, visible para todos los que ven la cotización.
  */
 export const cotizacionesRouter = Router();
 
@@ -22,8 +24,20 @@ cotizacionesRouter.use(requireAuth, requireRole("ADMIN", "DIRECCION", "VENDEDOR"
 
 type Lineas = Awaited<ReturnType<typeof calcularPartidas>>;
 
-/** Calcula el importe de cada partida con precios del servidor y los totales con el módulo de montos. */
-async function calcularPartidas(partidas: CotizacionPartida[], clienteId: string) {
+function puedeVerCostos(rol: SesionAutenticada["rol"]): boolean {
+  return rol === "ADMIN" || rol === "DIRECCION";
+}
+
+/** Llave para reconocer una partida entre versiones de la misma cotización. */
+function claveLinea(p: { servicioId?: string | null; descripcion?: string | null }): string {
+  return `${p.servicioId ?? ""}|${p.servicioId ? "" : (p.descripcion ?? "")}`;
+}
+
+/**
+ * Calcula cada partida con precios del servidor. El costo viene de `costos` (ya filtrado por rol).
+ * Un servicio del catálogo sale del catálogo o de la tarifa del cliente; una libre usa su precio.
+ */
+async function calcularPartidas(partidas: CotizacionPartida[], clienteId: string, costos: Array<number | null>) {
   const ids = partidas.map((p) => p.servicioId).filter((id): id is string => Boolean(id));
   const servicios = ids.length
     ? await prisma.servicio.findMany({ where: { id: { in: ids }, eliminadoEn: null, activo: true } })
@@ -58,6 +72,7 @@ async function calcularPartidas(partidas: CotizacionPartida[], clienteId: string
       descuentoPb: p.descuentoPb,
       importeCentavos: importe,
       descuentoCentavos: aplicarTasaPb(importe, p.descuentoPb),
+      costoUnitarioCentavos: costos[i] ?? null,
     };
   });
 }
@@ -114,6 +129,39 @@ const incluirDetalle = {
   partidas: { orderBy: { orden: "asc" as const } },
 };
 
+type CotizacionConDetalle = Prisma.CotizacionGetPayload<{ include: typeof incluirDetalle }>;
+
+/**
+ * Vista de una cotización para quien la pide. El anticipo se calcula aquí sobre el total con IVA.
+ * Los costos, la utilidad y el margen solo se agregan para ADMIN y DIRECCION.
+ */
+function vistaCotizacion(c: CotizacionConDetalle, rol: SesionAutenticada["rol"]) {
+  const { anticipoCentavos, saldoCentavos } = calcularAnticipo(c.totalCentavos, c.anticipoPb);
+  const comun = { ...c, estadoMostrado: estadoMostrado(c), anticipoCentavos, saldoCentavos };
+  if (!puedeVerCostos(rol)) {
+    return { ...comun, partidas: c.partidas.map(({ costoUnitarioCentavos: _costo, ...p }) => p) };
+  }
+  const conCosto = c.partidas.every((p) => p.costoUnitarioCentavos !== null);
+  const costoTotal = conCosto
+    ? c.partidas.reduce((suma, p) => suma + importeLinea(p.costoUnitarioCentavos ?? 0, p.cantidadMilesimas), 0)
+    : null;
+  const baseSinIva = c.subtotalCentavos - c.descuentoCentavos;
+  const utilidad = costoTotal === null ? null : baseSinIva - costoTotal;
+  const margenPb = utilidad === null || baseSinIva <= 0 ? null : Math.round((utilidad * 10000) / baseSinIva);
+  return { ...comun, costoTotalCentavos: costoTotal, utilidadCentavos: utilidad, margenPb };
+}
+
+/** Costos de cada partida según el rol: ADMIN y DIRECCION los envían; los demás no pueden enviarlos. */
+function costosDeEntrada(partidas: CotizacionPartida[], rol: SesionAutenticada["rol"]): Array<number | null> {
+  return partidas.map((p) => p.costoUnitarioCentavos ?? null).map((c) => (puedeVerCostos(rol) ? c : null));
+}
+
+function rechazarCostosDeNoAdmin(partidas: CotizacionPartida[], rol: SesionAutenticada["rol"]) {
+  if (!puedeVerCostos(rol) && partidas.some((p) => p.costoUnitarioCentavos !== undefined && p.costoUnitarioCentavos !== null)) {
+    throw new HttpError(403, "prohibido", "Solo ADMIN o DIRECCION pueden registrar costos");
+  }
+}
+
 cotizacionesRouter.get(
   "/",
   ruta(async (req, res) => {
@@ -130,20 +178,25 @@ cotizacionesRouter.get(
       orderBy: { creadoEn: "desc" },
       take: 200,
     });
-    res.json({ cotizaciones: cotizaciones.map((c) => ({ ...c, estadoMostrado: estadoMostrado(c) })) });
+    res.json({
+      cotizaciones: cotizaciones.map((c) => {
+        const { anticipoCentavos, saldoCentavos } = calcularAnticipo(c.totalCentavos, c.anticipoPb);
+        return { ...c, estadoMostrado: estadoMostrado(c), anticipoCentavos, saldoCentavos };
+      }),
+    });
   }),
 );
 
 cotizacionesRouter.get(
   "/:id",
   ruta(async (req, res) => {
-    sesionDe(res);
+    const sesion = sesionDe(res);
     const cotizacion = await prisma.cotizacion.findFirst({
       where: { id: String(req.params.id), eliminadoEn: null },
       include: incluirDetalle,
     });
     if (!cotizacion) throw new HttpError(404, "no_encontrado", "Cotización no encontrada");
-    res.json({ cotizacion: { ...cotizacion, estadoMostrado: estadoMostrado(cotizacion) } });
+    res.json({ cotizacion: vistaCotizacion(cotizacion, sesion.rol) });
   }),
 );
 
@@ -155,11 +208,12 @@ cotizacionesRouter.post(
     if (!parsed.success) {
       throw new HttpError(400, "datos_invalidos", parsed.error.issues[0]?.message ?? "Datos inválidos");
     }
-    const { clienteId, vigenciaDias, notas, partidas } = parsed.data;
+    rechazarCostosDeNoAdmin(parsed.data.partidas, sesion.rol);
+    const { clienteId, vigenciaDias, notas, anticipoPb, partidas } = parsed.data;
     const cliente = await prisma.cliente.findFirst({ where: { id: clienteId, eliminadoEn: null } });
     if (!cliente) throw new HttpError(400, "cliente_invalido", "El cliente no existe");
 
-    const lineas = await calcularPartidas(partidas, clienteId);
+    const lineas = await calcularPartidas(partidas, clienteId, costosDeEntrada(partidas, sesion.rol));
     const totales = totalesDe(lineas);
     const vigenciaHasta = vencimientoEn(vigenciaDias);
 
@@ -172,6 +226,7 @@ cotizacionesRouter.post(
           estado: "BORRADOR",
           vigenciaHasta,
           notas: notas ?? null,
+          anticipoPb,
           subtotalCentavos: totales.subtotalCentavos,
           descuentoCentavos: totales.descuentoCentavos,
           ivaCentavos: totales.ivaCentavos,
@@ -182,7 +237,7 @@ cotizacionesRouter.post(
         include: incluirDetalle,
       });
     });
-    res.status(201).json({ cotizacion: { ...cotizacion, estadoMostrado: estadoMostrado(cotizacion) } });
+    res.status(201).json({ cotizacion: vistaCotizacion(cotizacion, sesion.rol) });
   }),
 );
 
@@ -201,8 +256,21 @@ cotizacionesRouter.patch(
     if (!parsed.success) {
       throw new HttpError(400, "datos_invalidos", parsed.error.issues[0]?.message ?? "Datos inválidos");
     }
-    const { vigenciaDias, notas, partidas } = parsed.data;
-    const lineas = partidas ? await calcularPartidas(partidas, actual.clienteId) : null;
+    const { vigenciaDias, notas, anticipoPb, partidas } = parsed.data;
+    if (partidas) rechazarCostosDeNoAdmin(partidas, sesion.rol);
+
+    // Quien no es ADMIN ni DIRECCION no ve los costos, así que al editar conserva los de cada partida.
+    let costos: Array<number | null> = [];
+    if (partidas) {
+      if (puedeVerCostos(sesion.rol)) {
+        costos = costosDeEntrada(partidas, sesion.rol);
+      } else {
+        const previas = await prisma.cotizacionPartida.findMany({ where: { cotizacionId: actual.id } });
+        const costoPorClave = new Map(previas.map((p) => [claveLinea(p), p.costoUnitarioCentavos]));
+        costos = partidas.map((p) => costoPorClave.get(claveLinea(p)) ?? null);
+      }
+    }
+    const lineas = partidas ? await calcularPartidas(partidas, actual.clienteId, costos) : null;
     const totales = lineas ? totalesDe(lineas) : null;
 
     const cotizacion = await prisma.$transaction(async (tx) => {
@@ -212,6 +280,7 @@ cotizacionesRouter.patch(
         data: {
           ...(vigenciaDias ? { vigenciaHasta: vencimientoEn(vigenciaDias) } : {}),
           ...(notas !== undefined ? { notas } : {}),
+          ...(anticipoPb !== undefined ? { anticipoPb } : {}),
           ...(lineas && totales
             ? {
                 subtotalCentavos: totales.subtotalCentavos,
@@ -225,7 +294,7 @@ cotizacionesRouter.patch(
         include: incluirDetalle,
       });
     });
-    res.json({ cotizacion: { ...cotizacion, estadoMostrado: estadoMostrado(cotizacion) } });
+    res.json({ cotizacion: vistaCotizacion(cotizacion, sesion.rol) });
   }),
 );
 
@@ -245,7 +314,7 @@ cotizacionesRouter.post(
       data: { estado: "ENVIADA", enviadaEn: new Date() },
       include: incluirDetalle,
     });
-    res.json({ cotizacion: { ...cotizacion, estadoMostrado: estadoMostrado(cotizacion) } });
+    res.json({ cotizacion: vistaCotizacion(cotizacion, sesion.rol) });
   }),
 );
 
@@ -271,16 +340,18 @@ async function decidir(id: string, sesion: SesionAutenticada, nuevoEstado: "APRO
 cotizacionesRouter.post(
   "/:id/aprobar",
   ruta(async (req, res) => {
-    const cotizacion = await decidir(String(req.params.id), sesionDe(res), "APROBADA");
-    res.json({ cotizacion: { ...cotizacion, estadoMostrado: estadoMostrado(cotizacion) } });
+    const sesion = sesionDe(res);
+    const cotizacion = await decidir(String(req.params.id), sesion, "APROBADA");
+    res.json({ cotizacion: vistaCotizacion(cotizacion, sesion.rol) });
   }),
 );
 
 cotizacionesRouter.post(
   "/:id/rechazar",
   ruta(async (req, res) => {
-    const cotizacion = await decidir(String(req.params.id), sesionDe(res), "RECHAZADA");
-    res.json({ cotizacion: { ...cotizacion, estadoMostrado: estadoMostrado(cotizacion) } });
+    const sesion = sesionDe(res);
+    const cotizacion = await decidir(String(req.params.id), sesion, "RECHAZADA");
+    res.json({ cotizacion: vistaCotizacion(cotizacion, sesion.rol) });
   }),
 );
 

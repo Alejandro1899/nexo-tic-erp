@@ -16,9 +16,18 @@ export interface PartidaDetalle {
   descuentoPb: number;
   importeCentavos: number;
   descuentoCentavos: number;
+  /** Solo ADMIN y DIRECCION lo reciben. */
+  costoUnitarioCentavos?: number | null;
 }
 
 export interface CotizacionDetalle {
+  anticipoPb: number;
+  anticipoCentavos: number;
+  saldoCentavos: number;
+  /** Solo ADMIN y DIRECCION los reciben. */
+  costoTotalCentavos?: number | null;
+  utilidadCentavos?: number | null;
+  margenPb?: number | null;
   id: string;
   folio: string;
   estado: string;
@@ -144,6 +153,7 @@ export function CotizacionDetalle() {
             <th>Cantidad</th>
             <th>Precio</th>
             <th>Descuento</th>
+            {esAdminODireccion && <th>Costo (interno)</th>}
             <th>Importe</th>
           </tr>
         </thead>
@@ -154,6 +164,7 @@ export function CotizacionDetalle() {
               <td>{p.cantidadMilesimas / 1000}</td>
               <td>{formatearMXN(p.precioUnitarioCentavos)}</td>
               <td>{formatearMXN(p.descuentoCentavos)}</td>
+              {esAdminODireccion && <td>{p.costoUnitarioCentavos == null ? "—" : formatearMXN(p.costoUnitarioCentavos)}</td>}
               <td>{formatearMXN(p.importeCentavos)}</td>
             </tr>
           ))}
@@ -171,7 +182,26 @@ export function CotizacionDetalle() {
         <dd>
           <strong>{formatearMXN(cotizacion.totalCentavos)}</strong>
         </dd>
+        <dt>Anticipo ({cotizacion.anticipoPb / 100} %)</dt>
+        <dd>{formatearMXN(cotizacion.anticipoCentavos)}</dd>
+        <dt>Saldo</dt>
+        <dd>{formatearMXN(cotizacion.saldoCentavos)}</dd>
       </dl>
+
+      {esAdminODireccion && (
+        <div className="tarjeta">
+          <h3>Interno: costos y utilidad</h3>
+          <p>Esta sección no aparece en la impresión ni la ve el cliente.</p>
+          <dl className="detalle totales">
+            <dt>Costo total</dt>
+            <dd>{cotizacion.costoTotalCentavos == null ? "Falta costo en alguna partida" : formatearMXN(cotizacion.costoTotalCentavos)}</dd>
+            <dt>Utilidad</dt>
+            <dd>{cotizacion.utilidadCentavos == null ? "—" : formatearMXN(cotizacion.utilidadCentavos)}</dd>
+            <dt>Margen</dt>
+            <dd>{cotizacion.margenPb == null ? "—" : `${cotizacion.margenPb / 100} %`}</dd>
+          </dl>
+        </div>
+      )}
 
       <p>
         <Link to="/cotizaciones">← Volver a cotizaciones</Link>

@@ -84,6 +84,15 @@ export function calcularTotales(lineas: LineaCotizacion[], tasaIvaPb: number = T
   };
 }
 
+/**
+ * Anticipo de una cotización: porcentaje (en pb) sobre el total con IVA.
+ * El saldo es lo que resta, así que anticipo + saldo siempre suman el total.
+ */
+export function calcularAnticipo(totalCentavos: Centavos, anticipoPb: number): { anticipoCentavos: Centavos; saldoCentavos: Centavos } {
+  const anticipo = aplicarTasaPb(totalCentavos, anticipoPb);
+  return { anticipoCentavos: anticipo, saldoCentavos: totalCentavos - anticipo };
+}
+
 /** Formatea centavos para mostrar, por ejemplo 123456 -> "$1,234.56". Solo para vista. */
 export function formatearMXN(centavos: Centavos): string {
   assertEntero(centavos, "centavos");

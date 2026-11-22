@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { calcularTotales, formatearMXN, importeLinea, pesosACentavos } from "@nexo/shared";
 import { api, mensajeError } from "../api";
+import { useAuth } from "../auth";
 
 export interface ServicioCatalogo {
   id: string;
@@ -25,6 +26,8 @@ interface Linea {
   cantidad: string;
   precio: string;
   descuento: string;
+  /** Costo estimado unitario, interno. Solo ADMIN y DIRECCION lo capturan. */
+  costo: string;
 }
 
 let claveSeq = 0;
@@ -36,6 +39,7 @@ const lineaVacia = (): Linea => ({
   cantidad: "1",
   precio: "",
   descuento: "0",
+  costo: "",
 });
 
 /** Convierte texto a enteros sin floats: cantidad a milésimas, descuento a puntos básicos. */
@@ -56,12 +60,14 @@ export function CotizacionFormulario({
   inicial?: {
     id: string;
     notas: string | null;
+    anticipoPb?: number;
     partidas: Array<{
       servicioId: string | null;
       descripcion: string;
       cantidadMilesimas: number;
       precioUnitarioCentavos: number;
       descuentoPb: number;
+      costoUnitarioCentavos?: number | null;
     }>;
   } | null;
   onGuardado: (id: string) => void;
@@ -73,6 +79,9 @@ export function CotizacionFormulario({
   const [asignados, setAsignados] = useState<ServicioAsignado[]>([]);
   const [notas, setNotas] = useState(inicial?.notas ?? "");
   const [vigenciaDias, setVigenciaDias] = useState("15");
+  const [anticipo, setAnticipo] = useState(inicial?.anticipoPb ? String(inicial.anticipoPb / 100) : "0");
+  const { sesion } = useAuth();
+  const puedeCostos = sesion?.usuario.rol === "ADMIN" || sesion?.usuario.rol === "DIRECCION";
   const [lineas, setLineas] = useState<Linea[]>(() =>
     inicial
       ? inicial.partidas.map((p) => ({
@@ -83,6 +92,7 @@ export function CotizacionFormulario({
           cantidad: String(p.cantidadMilesimas / 1000),
           precio: p.servicioId ? "" : String(p.precioUnitarioCentavos / 100),
           descuento: String(p.descuentoPb / 100),
+          costo: p.costoUnitarioCentavos != null ? String(p.costoUnitarioCentavos / 100) : "",
         }))
       : [lineaVacia()],
   );
@@ -133,9 +143,15 @@ export function CotizacionFormulario({
     setLineas((prev) => prev.map((l) => (l.clave === clave ? { ...l, ...cambios } : l)));
   }
 
+  /** El costo solo se envía si el usuario puede verlo; vacío significa sin costo capturado. */
+  function costoDe(l: Linea): { costoUnitarioCentavos: number | null } | Record<string, never> {
+    if (!puedeCostos) return {};
+    return { costoUnitarioCentavos: l.costo.trim() ? pesosACentavos(l.costo) : null };
+  }
+
   function construirPartidas() {
     return lineas.map((l) => {
-      const base = { cantidadMilesimas: aMilesimas(l.cantidad), descuentoPb: aPuntosBasicos(l.descuento) };
+      const base = { cantidadMilesimas: aMilesimas(l.cantidad), descuentoPb: aPuntosBasicos(l.descuento), ...costoDe(l) };
       if (l.tipo === "catalogo") return { servicioId: l.servicioId, ...base };
       return { descripcion: l.descripcion.trim(), precioUnitarioCentavos: pesosACentavos(l.precio || "0"), ...base };
     });
@@ -146,7 +162,12 @@ export function CotizacionFormulario({
     setError(null);
     setEnviando(true);
     try {
-      const cuerpo = { vigenciaDias: Number(vigenciaDias), notas: notas.trim() || null, partidas: construirPartidas() };
+      const cuerpo = {
+        vigenciaDias: Number(vigenciaDias),
+        notas: notas.trim() || null,
+        anticipoPb: Math.round(Number(anticipo || "0") * 100),
+        partidas: construirPartidas(),
+      };
       if (inicial) {
         await api(`/api/cotizaciones/${inicial.id}`, { method: "PATCH", body: cuerpo });
         onGuardado(inicial.id);
@@ -183,6 +204,11 @@ export function CotizacionFormulario({
           <input type="number" min={1} max={365} value={vigenciaDias} onChange={(e) => setVigenciaDias(e.target.value)} required />
         </label>
         <label>
+          Anticipo (%)
+          <input type="number" min={0} max={100} step="0.01" value={anticipo} onChange={(e) => setAnticipo(e.target.value)} />
+          <small>Sobre el total con IVA. 0 = sin anticipo.</small>
+        </label>
+        <label>
           Notas
           <input value={notas} onChange={(e) => setNotas(e.target.value)} maxLength={2000} />
         </label>
@@ -198,6 +224,7 @@ export function CotizacionFormulario({
             <th>Cantidad</th>
             <th>Precio</th>
             <th>Desc. %</th>
+            {puedeCostos && <th>Costo (interno)</th>}
             <th>Importe</th>
             <th />
           </tr>
@@ -251,6 +278,11 @@ export function CotizacionFormulario({
               <td>
                 <input type="number" min={0} max={100} step="0.01" value={l.descuento} onChange={(e) => actualizar(l.clave, { descuento: e.target.value })} />
               </td>
+              {puedeCostos && (
+                <td>
+                  <input inputMode="decimal" value={l.costo} onChange={(e) => actualizar(l.clave, { costo: e.target.value })} placeholder="0.00" />
+                </td>
+              )}
               <td>{vista.importes[i] !== undefined ? formatearMXN(vista.importes[i]) : "—"}</td>
               <td>
                 {lineas.length > 1 && (
