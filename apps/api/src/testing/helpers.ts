@@ -32,6 +32,7 @@ export async function loginComo(identificador: string) {
 export async function limpiarPruebas() {
   // Primero las cotizaciones de clientes de prueba (sus partidas se borran en cascada).
   await prisma.cotizacion.deleteMany({ where: { cliente: { nombre: { startsWith: PREFIJO_PRUEBA } } } });
+  await prisma.contacto.deleteMany({ where: { cliente: { nombre: { startsWith: PREFIJO_PRUEBA } } } });
   await prisma.cliente.deleteMany({ where: { nombre: { startsWith: PREFIJO_PRUEBA } } });
   await prisma.servicio.deleteMany({ where: { nombre: { startsWith: PREFIJO_PRUEBA } } });
   await prisma.categoriaServicio.deleteMany({ where: { nombre: { startsWith: PREFIJO_PRUEBA } } });

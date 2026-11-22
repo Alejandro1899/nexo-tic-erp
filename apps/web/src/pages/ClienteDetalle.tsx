@@ -4,6 +4,7 @@ import { api, ApiError, mensajeError } from "../api";
 import { esAdminODireccion, useAuth } from "../auth";
 import { CotizacionesDelCliente, ServiciosAsignados } from "../components/ClienteServiciosYCotizaciones";
 import { Badge } from "../components/Badge";
+import { ClienteContactos } from "../components/ClienteContactos";
 import { Cliente, ClienteFormulario, ETIQUETA_TIPO, EstadoCliente } from "./Clientes";
 
 /** Ficha de un cliente: ver detalle, editar (ADMIN y DIRECCION) y eliminar lógicamente (ADMIN). */
@@ -72,6 +73,8 @@ export function ClienteDetalle() {
         />
       ) : (
         <dl className="detalle">
+          <dt>Folio</dt>
+          <dd>{cliente.folio}</dd>
           <dt>Tipo</dt>
           <dd>{ETIQUETA_TIPO[cliente.tipo]}</dd>
           <dt>RFC</dt>
@@ -89,6 +92,7 @@ export function ClienteDetalle() {
 
       {!editando && (
         <>
+          <ClienteContactos clienteId={cliente.id} puedeEditar={esAdminODireccion(rol)} />
           <ServiciosAsignados clienteId={cliente.id} puedeAsignar={esAdminODireccion(rol)} />
           {rol !== "TECNICO" && <CotizacionesDelCliente clienteId={cliente.id} puedeCotizar={esAdminODireccion(rol) || rol === "VENDEDOR"} />}
         </>

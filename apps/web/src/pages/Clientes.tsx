@@ -10,6 +10,7 @@ export type Estado = "EN_REVISION" | "EN_PROCESO" | "ACTIVO" | "SUSPENDIDO" | "F
 
 export interface Cliente {
   id: string;
+  folio: string;
   nombre: string;
   tipo: Tipo;
   estado: Estado;
@@ -104,6 +105,7 @@ export function Clientes() {
       <table>
         <thead>
           <tr>
+            <th>Folio</th>
             <th>Nombre</th>
             <th>Tipo</th>
             <th>RFC</th>
@@ -113,6 +115,7 @@ export function Clientes() {
         <tbody>
           {clientes.map((c) => (
             <tr key={c.id} className="fila">
+              <td>{c.folio}</td>
               <td>
                 <Link to={`/clientes/${c.id}`}>{c.nombre}</Link>
                 {c.datosFiscalesPendientes && <small> · datos fiscales pendientes</small>}
@@ -126,7 +129,7 @@ export function Clientes() {
           ))}
           {clientes.length === 0 && (
             <tr>
-              <td colSpan={4}>Sin clientes</td>
+              <td colSpan={5}>Sin clientes</td>
             </tr>
           )}
         </tbody>
