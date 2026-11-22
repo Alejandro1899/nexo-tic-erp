@@ -1,0 +1,297 @@
+import { Router } from "express";
+import type { Prisma } from "@prisma/client";
+import { CotizacionActualizarSchema, CotizacionCrearSchema, type CotizacionPartida } from "@nexo/shared";
+import { aplicarTasaPb, calcularTotales, importeLinea } from "@nexo/shared";
+import { ruta } from "../../lib/async.js";
+import { prisma } from "../../lib/db.js";
+import { HttpError } from "../../lib/errors.js";
+import { requireAuth } from "../../middleware/auth.js";
+import { requireRole, sesionDe, type SesionAutenticada } from "../../middleware/roles.js";
+
+/**
+ * Cotizaciones (ALCANCE 4.3).
+ *  - Crean y consultan: ADMIN, DIRECCION y VENDEDOR. TECNICO no ve cotizaciones.
+ *  - Editan, envían y eliminan: quien la creó (mientras sea borrador), ADMIN y DIRECCION.
+ *  - Aprueban o rechazan: ADMIN y DIRECCION, solo las enviadas y vigentes.
+ *  - El precio de un servicio del catálogo sale del servidor (tarifa del cliente o del catálogo),
+ *    nunca del cuerpo de la petición. Solo las partidas libres llevan precio.
+ */
+export const cotizacionesRouter = Router();
+
+cotizacionesRouter.use(requireAuth, requireRole("ADMIN", "DIRECCION", "VENDEDOR"));
+
+type Lineas = Awaited<ReturnType<typeof calcularPartidas>>;
+
+/** Calcula el importe de cada partida con precios del servidor y los totales con el módulo de montos. */
+async function calcularPartidas(partidas: CotizacionPartida[], clienteId: string) {
+  const ids = partidas.map((p) => p.servicioId).filter((id): id is string => Boolean(id));
+  const servicios = ids.length
+    ? await prisma.servicio.findMany({ where: { id: { in: ids }, eliminadoEn: null, activo: true } })
+    : [];
+  const asignaciones = ids.length
+    ? await prisma.clienteServicio.findMany({ where: { clienteId, servicioId: { in: ids }, eliminadoEn: null } })
+    : [];
+  const porServicio = new Map(servicios.map((s) => [s.id, s]));
+  const tarifaDeCliente = new Map(asignaciones.map((a) => [a.servicioId, a.tarifaCentavos]));
+
+  return partidas.map((p, i) => {
+    let descripcion: string;
+    let precio: number;
+    if (p.servicioId) {
+      const servicio = porServicio.get(p.servicioId);
+      if (!servicio) {
+        throw new HttpError(400, "servicio_invalido", `La partida ${i + 1} usa un servicio que no existe o está inactivo`);
+      }
+      descripcion = servicio.nombre;
+      precio = tarifaDeCliente.get(servicio.id) ?? servicio.tarifaCentavos;
+    } else {
+      descripcion = p.descripcion ?? "";
+      precio = p.precioUnitarioCentavos ?? 0;
+    }
+    const importe = importeLinea(precio, p.cantidadMilesimas);
+    return {
+      orden: i + 1,
+      servicioId: p.servicioId ?? null,
+      descripcion,
+      cantidadMilesimas: p.cantidadMilesimas,
+      precioUnitarioCentavos: precio,
+      descuentoPb: p.descuentoPb,
+      importeCentavos: importe,
+      descuentoCentavos: aplicarTasaPb(importe, p.descuentoPb),
+    };
+  });
+}
+
+function totalesDe(lineas: Lineas) {
+  return calcularTotales(
+    lineas.map((l) => ({
+      precioUnitarioCentavos: l.precioUnitarioCentavos,
+      cantidadMilesimas: l.cantidadMilesimas,
+      descuentoPb: l.descuentoPb,
+    })),
+  );
+}
+
+/** Fecha de vencimiento de una cotización a partir de hoy. */
+function vencimientoEn(dias: number): Date {
+  return new Date(Date.now() + dias * 24 * 60 * 60 * 1000);
+}
+
+/** Folio consecutivo por año: COT-2026-0001. Se llama dentro de una transacción. */
+async function siguienteFolio(tx: Prisma.TransactionClient): Promise<string> {
+  const anio = new Date().getFullYear();
+  const consecutivo = await tx.consecutivo.upsert({
+    where: { tipo_anio: { tipo: "COT", anio } },
+    create: { tipo: "COT", anio, valor: 1 },
+    update: { valor: { increment: 1 } },
+  });
+  return `COT-${anio}-${String(consecutivo.valor).padStart(4, "0")}`;
+}
+
+/** Estado que se muestra: una enviada cuya vigencia ya pasó se muestra como vencida. */
+function estadoMostrado(c: { estado: string; vigenciaHasta: Date }): string {
+  return c.estado === "ENVIADA" && c.vigenciaHasta < new Date() ? "VENCIDA" : c.estado;
+}
+
+/** Puede gestionar la cotización: quien la creó, o ADMIN y DIRECCION. */
+function puedeGestionar(sesion: SesionAutenticada, creadoPorId: string | null): boolean {
+  return sesion.rol === "ADMIN" || sesion.rol === "DIRECCION" || creadoPorId === sesion.usuarioId;
+}
+
+async function cotizacionVigente(id: string) {
+  const cotizacion = await prisma.cotizacion.findFirst({ where: { id, eliminadoEn: null } });
+  if (!cotizacion) throw new HttpError(404, "no_encontrado", "Cotización no encontrada");
+  return cotizacion;
+}
+
+const incluirDetalle = {
+  cliente: { select: { id: true, nombre: true } },
+  partidas: { orderBy: { orden: "asc" as const } },
+};
+
+cotizacionesRouter.get(
+  "/",
+  ruta(async (req, res) => {
+    sesionDe(res);
+    const estado = typeof req.query.estado === "string" ? req.query.estado : "";
+    const clienteId = typeof req.query.clienteId === "string" ? req.query.clienteId : "";
+    const cotizaciones = await prisma.cotizacion.findMany({
+      where: {
+        eliminadoEn: null,
+        ...(estado ? { estado: estado as "BORRADOR" | "ENVIADA" | "APROBADA" | "RECHAZADA" } : {}),
+        ...(clienteId ? { clienteId } : {}),
+      },
+      include: { cliente: { select: { id: true, nombre: true } } },
+      orderBy: { creadoEn: "desc" },
+      take: 200,
+    });
+    res.json({ cotizaciones: cotizaciones.map((c) => ({ ...c, estadoMostrado: estadoMostrado(c) })) });
+  }),
+);
+
+cotizacionesRouter.get(
+  "/:id",
+  ruta(async (req, res) => {
+    sesionDe(res);
+    const cotizacion = await prisma.cotizacion.findFirst({
+      where: { id: String(req.params.id), eliminadoEn: null },
+      include: incluirDetalle,
+    });
+    if (!cotizacion) throw new HttpError(404, "no_encontrado", "Cotización no encontrada");
+    res.json({ cotizacion: { ...cotizacion, estadoMostrado: estadoMostrado(cotizacion) } });
+  }),
+);
+
+cotizacionesRouter.post(
+  "/",
+  ruta(async (req, res) => {
+    const sesion = sesionDe(res);
+    const parsed = CotizacionCrearSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new HttpError(400, "datos_invalidos", parsed.error.issues[0]?.message ?? "Datos inválidos");
+    }
+    const { clienteId, vigenciaDias, notas, partidas } = parsed.data;
+    const cliente = await prisma.cliente.findFirst({ where: { id: clienteId, eliminadoEn: null } });
+    if (!cliente) throw new HttpError(400, "cliente_invalido", "El cliente no existe");
+
+    const lineas = await calcularPartidas(partidas, clienteId);
+    const totales = totalesDe(lineas);
+    const vigenciaHasta = vencimientoEn(vigenciaDias);
+
+    const cotizacion = await prisma.$transaction(async (tx) => {
+      const folio = await siguienteFolio(tx);
+      return tx.cotizacion.create({
+        data: {
+          folio,
+          clienteId,
+          estado: "BORRADOR",
+          vigenciaHasta,
+          notas: notas ?? null,
+          subtotalCentavos: totales.subtotalCentavos,
+          descuentoCentavos: totales.descuentoCentavos,
+          ivaCentavos: totales.ivaCentavos,
+          totalCentavos: totales.totalCentavos,
+          creadoPorId: sesion.usuarioId,
+          partidas: { create: lineas },
+        },
+        include: incluirDetalle,
+      });
+    });
+    res.status(201).json({ cotizacion: { ...cotizacion, estadoMostrado: estadoMostrado(cotizacion) } });
+  }),
+);
+
+cotizacionesRouter.patch(
+  "/:id",
+  ruta(async (req, res) => {
+    const sesion = sesionDe(res);
+    const actual = await cotizacionVigente(String(req.params.id));
+    if (!puedeGestionar(sesion, actual.creadoPorId)) {
+      throw new HttpError(403, "prohibido", "Solo quien creó la cotización o un administrador puede editarla");
+    }
+    if (actual.estado !== "BORRADOR") {
+      throw new HttpError(409, "no_editable", "Solo se pueden editar cotizaciones en borrador");
+    }
+    const parsed = CotizacionActualizarSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new HttpError(400, "datos_invalidos", parsed.error.issues[0]?.message ?? "Datos inválidos");
+    }
+    const { vigenciaDias, notas, partidas } = parsed.data;
+    const lineas = partidas ? await calcularPartidas(partidas, actual.clienteId) : null;
+    const totales = lineas ? totalesDe(lineas) : null;
+
+    const cotizacion = await prisma.$transaction(async (tx) => {
+      if (lineas) await tx.cotizacionPartida.deleteMany({ where: { cotizacionId: actual.id } });
+      return tx.cotizacion.update({
+        where: { id: actual.id },
+        data: {
+          ...(vigenciaDias ? { vigenciaHasta: vencimientoEn(vigenciaDias) } : {}),
+          ...(notas !== undefined ? { notas } : {}),
+          ...(lineas && totales
+            ? {
+                subtotalCentavos: totales.subtotalCentavos,
+                descuentoCentavos: totales.descuentoCentavos,
+                ivaCentavos: totales.ivaCentavos,
+                totalCentavos: totales.totalCentavos,
+                partidas: { create: lineas },
+              }
+            : {}),
+        },
+        include: incluirDetalle,
+      });
+    });
+    res.json({ cotizacion: { ...cotizacion, estadoMostrado: estadoMostrado(cotizacion) } });
+  }),
+);
+
+cotizacionesRouter.post(
+  "/:id/enviar",
+  ruta(async (req, res) => {
+    const sesion = sesionDe(res);
+    const actual = await cotizacionVigente(String(req.params.id));
+    if (!puedeGestionar(sesion, actual.creadoPorId)) {
+      throw new HttpError(403, "prohibido", "Solo quien creó la cotización o un administrador puede enviarla");
+    }
+    if (actual.estado !== "BORRADOR") {
+      throw new HttpError(409, "transicion_invalida", "Solo un borrador se puede enviar a autorización");
+    }
+    const cotizacion = await prisma.cotizacion.update({
+      where: { id: actual.id },
+      data: { estado: "ENVIADA", enviadaEn: new Date() },
+      include: incluirDetalle,
+    });
+    res.json({ cotizacion: { ...cotizacion, estadoMostrado: estadoMostrado(cotizacion) } });
+  }),
+);
+
+/** Autorizar o rechazar: solo ADMIN y DIRECCION, sobre cotizaciones enviadas y vigentes. */
+async function decidir(id: string, sesion: SesionAutenticada, nuevoEstado: "APROBADA" | "RECHAZADA") {
+  if (sesion.rol !== "ADMIN" && sesion.rol !== "DIRECCION") {
+    throw new HttpError(403, "prohibido", "Solo ADMIN o DIRECCION pueden autorizar o rechazar cotizaciones");
+  }
+  const actual = await cotizacionVigente(id);
+  if (actual.estado !== "ENVIADA") {
+    throw new HttpError(409, "transicion_invalida", "Solo una cotización enviada se puede autorizar o rechazar");
+  }
+  if (estadoMostrado(actual) === "VENCIDA") {
+    throw new HttpError(409, "vencida", "La vigencia de la cotización ya venció; hay que crear una nueva");
+  }
+  return prisma.cotizacion.update({
+    where: { id: actual.id },
+    data: { estado: nuevoEstado, autorizadaPorId: sesion.usuarioId, autorizadaEn: new Date() },
+    include: incluirDetalle,
+  });
+}
+
+cotizacionesRouter.post(
+  "/:id/aprobar",
+  ruta(async (req, res) => {
+    const cotizacion = await decidir(String(req.params.id), sesionDe(res), "APROBADA");
+    res.json({ cotizacion: { ...cotizacion, estadoMostrado: estadoMostrado(cotizacion) } });
+  }),
+);
+
+cotizacionesRouter.post(
+  "/:id/rechazar",
+  ruta(async (req, res) => {
+    const cotizacion = await decidir(String(req.params.id), sesionDe(res), "RECHAZADA");
+    res.json({ cotizacion: { ...cotizacion, estadoMostrado: estadoMostrado(cotizacion) } });
+  }),
+);
+
+/** Borrado lógico de borradores. Una cotización ya enviada o decidida se conserva. */
+cotizacionesRouter.delete(
+  "/:id",
+  ruta(async (req, res) => {
+    const sesion = sesionDe(res);
+    const actual = await cotizacionVigente(String(req.params.id));
+    if (!puedeGestionar(sesion, actual.creadoPorId)) {
+      throw new HttpError(403, "prohibido", "Solo quien creó la cotización o un administrador puede eliminarla");
+    }
+    if (actual.estado !== "BORRADOR") {
+      throw new HttpError(409, "no_eliminable", "Solo se pueden eliminar borradores");
+    }
+    await prisma.cotizacion.update({ where: { id: actual.id }, data: { eliminadoEn: new Date() } });
+    res.status(204).end();
+  }),
+);

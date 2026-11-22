@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aplicarTasaPb, calcularTotales, formatearMXN, importeLinea } from "../src/money.js";
+import { aplicarTasaPb, calcularTotales, formatearMXN, importeLinea, pesosACentavos } from "../src/money.js";
 
 describe("aplicarTasaPb", () => {
   it("calcula IVA 16% sobre 100.00 MXN", () => {
@@ -44,5 +44,17 @@ describe("formatearMXN", () => {
   it("formatea centavos para vista", () => {
     expect(formatearMXN(123456)).toBe("$1,234.56");
     expect(formatearMXN(5)).toBe("$0.05");
+  });
+});
+
+describe("pesosACentavos", () => {
+  it("convierte texto de pesos sin floats", () => {
+    expect(pesosACentavos("1234")).toBe(123400);
+    expect(pesosACentavos("1,234.5")).toBe(123450);
+    expect(pesosACentavos("0.05")).toBe(5);
+  });
+  it("rechaza montos inválidos", () => {
+    expect(() => pesosACentavos("12.345")).toThrow(RangeError);
+    expect(() => pesosACentavos("abc")).toThrow(RangeError);
   });
 });

@@ -93,3 +93,11 @@ export function formatearMXN(centavos: Centavos): string {
   const cents = String(abs % 100).padStart(2, "0");
   return `${signo}$${pesos}.${cents}`;
 }
+
+/** Convierte texto de pesos ("1234", "1,234.5", "1234.56") a centavos enteros, sin floats. */
+export function pesosACentavos(texto: string): Centavos {
+  const limpio = texto.trim().replace(/,/g, "");
+  const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(limpio);
+  if (!m) throw new RangeError(`Monto inválido: ${texto}`);
+  return Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0"));
+}
