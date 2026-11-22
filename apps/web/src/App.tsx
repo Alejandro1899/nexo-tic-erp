@@ -12,6 +12,7 @@ import { Usuarios } from "./pages/Usuarios";
 import { UsuarioDetalle } from "./pages/UsuarioDetalle";
 import { Cotizaciones } from "./pages/Cotizaciones";
 import { CotizacionDetalle } from "./pages/CotizacionDetalle";
+import { Configuracion } from "./pages/Configuracion";
 import "./styles.css";
 
 function Protegida({ children }: { children: ReactNode }) {
@@ -47,6 +48,14 @@ export function App() {
           <Route path="servicios" element={<Servicios />} />
           <Route path="cotizaciones" element={<Cotizaciones />} />
           <Route path="cotizaciones/:id" element={<CotizacionDetalle />} />
+          <Route
+            path="configuracion"
+            element={
+              <SoloAdmin>
+                <Configuracion />
+              </SoloAdmin>
+            }
+          />
           <Route
             path="usuarios"
             element={

@@ -7,7 +7,7 @@ export const TipoCliente =z.enum(["PERSONA_FISICA", "PERSONA_MORAL", "NEGOCIO_SI
 export const EstadoCliente = z.enum(["EN_REVISION", "EN_PROCESO", "ACTIVO", "SUSPENDIDO", "FINALIZADO"]);
 export const UnidadCobro = z.enum(["HORA", "PROYECTO", "MENSUALIDAD"]);
 
-const rfcSchema = z
+export const rfcSchema = z
   .string()
   .trim()
   .toUpperCase()
@@ -33,6 +33,26 @@ export const ClienteActualizarSchema = z
   .object({ ...camposCliente, estado: EstadoCliente })
   .partial()
   .strict();
+
+/** Teléfono: dígitos con espacios, guiones, paréntesis o "+" inicial; de 7 a 20 caracteres. */
+const telefonoSchema = z
+  .string()
+  .trim()
+  .regex(/^\+?[\d\s()-]{7,20}$/, "Teléfono con formato inválido")
+  .refine((t) => t.replace(/\D/g, "").length >= 7, "El teléfono debe tener al menos 7 dígitos");
+
+/** Contacto de un cliente. Todos los campos de contacto son opcionales, pero el nombre es obligatorio. */
+const camposContacto = {
+  nombre: z.string().trim().min(1, "El nombre del contacto es obligatorio").max(200),
+  puesto: z.string().trim().min(1).max(100).nullable().optional(),
+  telefono: telefonoSchema.nullable().optional(),
+  correo: z.string().trim().toLowerCase().email("Correo de contacto inválido").max(200).nullable().optional(),
+  esPrincipal: z.boolean().optional(),
+};
+
+export const ContactoCrearSchema = z.object(camposContacto).strict();
+
+export const ContactoActualizarSchema = z.object(camposContacto).partial().strict();
 
 export const ServicioCrearSchema = z
   .object({
@@ -156,3 +176,27 @@ export function datosFiscalesPendientes(c: {
   if (c.tipo === "PERSONA_MORAL") return !c.rfc || !c.razonSocial;
   return false;
 }
+
+/** Límite del logo en la base: 500 KB. */
+export const LOGO_MAX_BYTES = 500 * 1024;
+
+/**
+ * Datos de la empresa (solo ADMIN los cambia). Todos opcionales en la actualización.
+ * El IVA y el redondeo no aparecen aquí: son reglas fijas definidas una sola vez.
+ */
+export const ConfiguracionActualizarSchema = z
+  .object({
+    nombreComercial: z.string().trim().min(1, "El nombre comercial es obligatorio").max(200),
+    razonSocial: z.string().trim().max(200).nullable(),
+    rfc: rfcSchema.nullable(),
+    regimenFiscal: z.string().trim().max(100).nullable(),
+    codigoPostal: z.string().trim().regex(/^\d{5}$/, "Código postal de 5 dígitos").nullable(),
+    correo: z.string().trim().toLowerCase().email("Correo inválido").max(200).nullable(),
+    telefono: telefonoSchema.nullable(),
+    sitioWeb: z.string().trim().max(200).nullable(),
+    condicionesCotizacion: z.string().trim().min(1, "Las condiciones no pueden estar vacías").max(4000),
+    vigenciaDiasDefault: z.number().int().min(1, "Mínimo 1 día").max(90, "Máximo 90 días"),
+    prefijoFolioCotizacion: z.string().trim().toUpperCase().regex(/^[A-Z]{2,4}$/, "El prefijo tiene de 2 a 4 letras"),
+  })
+  .partial()
+  .strict();

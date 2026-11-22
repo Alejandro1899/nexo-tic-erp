@@ -22,6 +22,7 @@ export function Shell() {
           <NavLink to="/servicios">Catálogo</NavLink>
           {sesion.usuario.rol !== "TECNICO" && <NavLink to="/cotizaciones">Cotizaciones</NavLink>}
           {esAdmin && <NavLink to="/usuarios">Usuarios</NavLink>}
+          {esAdmin && <NavLink to="/configuracion">Empresa</NavLink>}
         </nav>
         <div className="usuario">
           {sesion.usuario.nombre} ({sesion.usuario.rol})

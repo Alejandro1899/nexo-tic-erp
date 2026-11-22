@@ -1,5 +1,13 @@
 import { Router } from "express";
-import { ClienteActualizarSchema, ClienteCrearSchema, ClienteServicioSchema, datosFiscalesPendientes } from "@nexo/shared";
+import type { Prisma } from "@prisma/client";
+import {
+  ClienteActualizarSchema,
+  ClienteCrearSchema,
+  ClienteServicioSchema,
+  ContactoActualizarSchema,
+  ContactoCrearSchema,
+  datosFiscalesPendientes,
+} from "@nexo/shared";
 import { ruta } from "../../lib/async.js";
 import { prisma } from "../../lib/db.js";
 import { HttpError, traducirErrorPrisma } from "../../lib/errors.js";
@@ -12,6 +20,16 @@ export const clientesRouter = Router();
 clientesRouter.use(requireAuth);
 
 const ESTADOS = ["EN_REVISION", "EN_PROCESO", "ACTIVO", "SUSPENDIDO", "FINALIZADO"] as const;
+
+/** Folio de cliente: CLI-0001. Consecutivo global (se guarda con año 0 para no depender del año). */
+export async function siguienteFolioCliente(tx: Prisma.TransactionClient): Promise<string> {
+  const consecutivo = await tx.consecutivo.upsert({
+    where: { tipo_anio: { tipo: "CLI", anio: 0 } },
+    create: { tipo: "CLI", anio: 0, valor: 1 },
+    update: { valor: { increment: 1 } },
+  });
+  return `CLI-${String(consecutivo.valor).padStart(4, "0")}`;
+}
 
 clientesRouter.get(
   "/",
@@ -53,13 +71,18 @@ clientesRouter.post(
     }
     const datos = parsed.data;
     try {
-      const cliente = await prisma.cliente.create({
-        data: {
-          ...datos,
-          estado: "EN_REVISION",
-          datosFiscalesPendientes: datosFiscalesPendientes(datos),
-          creadoPorId: usuarioId,
-        },
+      // El folio y el alta van en la misma transacción para que no se repita un número.
+      const cliente = await prisma.$transaction(async (tx) => {
+        const folio = await siguienteFolioCliente(tx);
+        return tx.cliente.create({
+          data: {
+            ...datos,
+            folio,
+            estado: "EN_REVISION",
+            datosFiscalesPendientes: datosFiscalesPendientes(datos),
+            creadoPorId: usuarioId,
+          },
+        });
       });
       res.status(201).json({ cliente });
     } catch (e) {
@@ -173,6 +196,110 @@ clientesRouter.delete(
       data: { eliminadoEn: new Date() },
     });
     if (count === 0) throw new HttpError(404, "no_encontrado", "El servicio no está asignado a este cliente");
+    res.status(204).end();
+  }),
+);
+
+async function clienteActivoOFallar(id: string): Promise<void> {
+  const cliente = await prisma.cliente.findFirst({ where: { id, eliminadoEn: null }, select: { id: true } });
+  if (!cliente) throw new HttpError(404, "no_encontrado", "Cliente no encontrado");
+}
+
+async function contactoDelClienteOFallar(clienteId: string, contactoId: string) {
+  const contacto = await prisma.contacto.findFirst({ where: { id: contactoId, clienteId, eliminadoEn: null } });
+  if (!contacto) throw new HttpError(404, "no_encontrado", "Contacto no encontrado");
+  return contacto;
+}
+
+/** Contactos de un cliente, principal primero. Lectura: todos los roles. */
+clientesRouter.get(
+  "/:id/contactos",
+  ruta(async (req, res) => {
+    sesionDe(res);
+    const clienteId = String(req.params.id);
+    await clienteActivoOFallar(clienteId);
+    const contactos = await prisma.contacto.findMany({
+      where: { clienteId, eliminadoEn: null },
+      orderBy: [{ esPrincipal: "desc" }, { nombre: "asc" }],
+    });
+    res.json({ contactos });
+  }),
+);
+
+/** Alta de contacto. El primero del cliente es principal automáticamente; si se marca principal, el anterior deja de serlo. */
+clientesRouter.post(
+  "/:id/contactos",
+  requireRole("ADMIN", "DIRECCION"),
+  ruta(async (req, res) => {
+    const { usuarioId } = sesionDe(res);
+    const clienteId = String(req.params.id);
+    const parsed = ContactoCrearSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new HttpError(400, "datos_invalidos", parsed.error.issues[0]?.message ?? "Datos inválidos");
+    }
+    await clienteActivoOFallar(clienteId);
+    const contacto = await prisma.$transaction(async (tx) => {
+      const existentes = await tx.contacto.count({ where: { clienteId, eliminadoEn: null } });
+      const seraPrincipal = parsed.data.esPrincipal === true || existentes === 0;
+      if (seraPrincipal) {
+        await tx.contacto.updateMany({ where: { clienteId, eliminadoEn: null, esPrincipal: true }, data: { esPrincipal: false } });
+      }
+      return tx.contacto.create({
+        data: { ...parsed.data, clienteId, esPrincipal: seraPrincipal, creadoPorId: usuarioId },
+      });
+    });
+    res.status(201).json({ contacto });
+  }),
+);
+
+/** Edición de contacto. No se puede quitar el principal directamente: se marca otro como principal. */
+clientesRouter.patch(
+  "/:id/contactos/:contactoId",
+  requireRole("ADMIN", "DIRECCION"),
+  ruta(async (req, res) => {
+    sesionDe(res);
+    const clienteId = String(req.params.id);
+    const contactoId = String(req.params.contactoId);
+    const parsed = ContactoActualizarSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new HttpError(400, "datos_invalidos", parsed.error.issues[0]?.message ?? "Datos inválidos");
+    }
+    const actual = await contactoDelClienteOFallar(clienteId, contactoId);
+    if (parsed.data.esPrincipal === false && actual.esPrincipal) {
+      throw new HttpError(400, "principal_requerido", "Marca otro contacto como principal antes de quitar este");
+    }
+    const contacto = await prisma.$transaction(async (tx) => {
+      if (parsed.data.esPrincipal === true) {
+        await tx.contacto.updateMany({
+          where: { clienteId, eliminadoEn: null, esPrincipal: true, NOT: { id: contactoId } },
+          data: { esPrincipal: false },
+        });
+      }
+      return tx.contacto.update({ where: { id: contactoId }, data: parsed.data });
+    });
+    res.json({ contacto });
+  }),
+);
+
+/** Borrado lógico de contacto. Si era el principal, el contacto más antiguo pasa a ser principal. */
+clientesRouter.delete(
+  "/:id/contactos/:contactoId",
+  requireRole("ADMIN", "DIRECCION"),
+  ruta(async (req, res) => {
+    sesionDe(res);
+    const clienteId = String(req.params.id);
+    const contactoId = String(req.params.contactoId);
+    const actual = await contactoDelClienteOFallar(clienteId, contactoId);
+    await prisma.$transaction(async (tx) => {
+      await tx.contacto.update({ where: { id: contactoId }, data: { eliminadoEn: new Date(), esPrincipal: false } });
+      if (actual.esPrincipal) {
+        const siguiente = await tx.contacto.findFirst({
+          where: { clienteId, eliminadoEn: null },
+          orderBy: { creadoEn: "asc" },
+        });
+        if (siguiente) await tx.contacto.update({ where: { id: siguiente.id }, data: { esPrincipal: true } });
+      }
+    });
     res.status(204).end();
   }),
 );
