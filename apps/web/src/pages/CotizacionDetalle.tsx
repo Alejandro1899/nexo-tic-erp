@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { formatearMXN } from "@nexo/shared";
-import { api, ApiError, mensajeError } from "../api";
+import { api, ApiError, BASE_API, mensajeError } from "../api";
 import { useAuth } from "../auth";
 import { CotizacionFormulario } from "../components/CotizacionFormulario";
 import { EstadoCotizacion } from "./Cotizaciones";
@@ -18,11 +18,24 @@ interface PartidaDetalle {
   descuentoCentavos: number;
 }
 
+/** Datos de la empresa que aparecen en la hoja impresa. */
+interface EmpresaImpresion {
+  nombreComercial: string;
+  razonSocial: string | null;
+  rfc: string | null;
+  correo: string | null;
+  telefono: string | null;
+  sitioWeb: string | null;
+  tieneLogo: boolean;
+  condicionesCotizacion: string;
+}
+
 interface CotizacionDetalle {
   id: string;
   folio: string;
   estado: string;
   estadoMostrado: string;
+  creadoEn: string;
   vigenciaHasta: string;
   notas: string | null;
   subtotalCentavos: number;
@@ -43,8 +56,16 @@ export function CotizacionDetalle() {
   const rol = sesion?.usuario.rol;
   const miId = sesion?.usuario.id;
   const [cotizacion, setCotizacion] = useState<CotizacionDetalle | null>(null);
+  const [empresa, setEmpresa] = useState<EmpresaImpresion | null>(null);
   const [editando, setEditando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Datos de la empresa para el encabezado de impresión. Si fallan, la hoja sale sin encabezado de empresa.
+    api<{ configuracion: EmpresaImpresion }>("/api/configuracion")
+      .then((d) => setEmpresa(d.configuracion))
+      .catch(() => setEmpresa(null));
+  }, []);
 
   const cargar = useCallback(async () => {
     try {
@@ -105,9 +126,28 @@ export function CotizacionDetalle() {
 
   return (
     <section>
-      <div className="barra">
+      {empresa && (
+        <header className="solo-imprimir encabezado-impresion">
+          <div>
+            {empresa.tieneLogo && <img src={`${BASE_API}/api/configuracion/logo`} alt={empresa.nombreComercial} />}
+            <strong>{empresa.razonSocial ?? empresa.nombreComercial}</strong>
+            <div>
+              {[empresa.rfc && `RFC ${empresa.rfc}`, empresa.correo, empresa.telefono, empresa.sitioWeb].filter(Boolean).join(" · ")}
+            </div>
+          </div>
+          <div className="encabezado-folio">
+            <strong>COTIZACIÓN</strong>
+            <div>Folio: {cotizacion.folio}</div>
+            <div>Fecha: {new Date(cotizacion.creadoEn).toLocaleDateString("es-MX")}</div>
+            <div>Vigente hasta: {new Date(cotizacion.vigenciaHasta).toLocaleDateString("es-MX")}</div>
+          </div>
+        </header>
+      )}
+
+      <div className="barra no-imprimir">
         <h2>{cotizacion.folio}</h2>
         <EstadoCotizacion estado={cotizacion.estadoMostrado} />
+        <button type="button" onClick={() => window.print()}>Imprimir / PDF</button>
         {esBorrador && puedeGestionar && <button onClick={() => setEditando(true)}>Editar</button>}
         {esBorrador && puedeGestionar && (
           <button onClick={() => void accion(`/api/cotizaciones/${cotizacion.id}/enviar`, "POST")}>Enviar a autorización</button>
@@ -172,9 +212,16 @@ export function CotizacionDetalle() {
         </dd>
       </dl>
 
-      <p>
+      <p className="no-imprimir">
         <Link to="/cotizaciones">← Volver a cotizaciones</Link>
       </p>
+
+      {empresa?.condicionesCotizacion && (
+        <section className="solo-imprimir condiciones-impresion">
+          <strong>Condiciones</strong>
+          <p>{empresa.condicionesCotizacion}</p>
+        </section>
+      )}
     </section>
   );
 }

@@ -60,3 +60,24 @@ button:disabled { opacity: 0.6; }
 
 /* Tablas anchas dentro de un contenedor con desplazamiento horizontal */
 .tabla-scroll { overflow-x: auto; max-width: 100%; }
+
+/* Elementos solo visibles al imprimir o solo en pantalla */
+.solo-imprimir { display: none; }
+.encabezado-impresion { display: none; }
+
+/* Hoja de impresión de la cotización (Ctrl+P → Guardar como PDF) */
+@media print {
+  @page { size: letter; margin: 14mm; }
+  body, :root { background: #fff; color: #000; }
+  .app > header, .no-imprimir { display: none !important; }
+  .solo-imprimir { display: block; }
+  .encabezado-impresion { display: flex !important; justify-content: space-between; align-items: flex-start; gap: 1rem; border-bottom: 2px solid #0b1f3a; padding-bottom: 0.6rem; margin-bottom: 0.8rem; }
+  .encabezado-impresion img { display: block; max-height: 60px; margin-bottom: 0.4rem; }
+  .encabezado-folio { text-align: right; }
+  main { padding: 0; max-width: none; }
+  .tarjeta, .barra { box-shadow: none; background: #fff; padding: 0; }
+  table, th, td { font-size: 11pt; }
+  th, td { padding: 0.35rem 0.4rem; }
+  tr, table { break-inside: avoid; }
+  .condiciones-impresion { margin-top: 1rem; font-size: 10pt; white-space: pre-line; }
+}
