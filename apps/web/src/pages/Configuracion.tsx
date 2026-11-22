@@ -35,8 +35,21 @@ export function Configuracion() {
     try {
       const data = await api<{ configuracion: Configuracion }>("/api/configuracion");
       setOriginal(data.configuracion);
-      const { tieneLogo: _tieneLogo, ...resto } = data.configuracion;
-      setForm(resto);
+      // Solo los campos editables: el servidor rechaza cualquier otra clave (id, fechas, quién actualizó).
+      const c = data.configuracion;
+      setForm({
+        nombreComercial: c.nombreComercial,
+        razonSocial: c.razonSocial,
+        rfc: c.rfc,
+        regimenFiscal: c.regimenFiscal,
+        codigoPostal: c.codigoPostal,
+        correo: c.correo,
+        telefono: c.telefono,
+        sitioWeb: c.sitioWeb,
+        condicionesCotizacion: c.condicionesCotizacion,
+        vigenciaDiasDefault: c.vigenciaDiasDefault,
+        prefijoFolioCotizacion: c.prefijoFolioCotizacion,
+      });
       setError(null);
     } catch (e) {
       setError(mensajeError(e));
