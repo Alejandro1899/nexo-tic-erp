@@ -208,3 +208,23 @@ model Consecutivo {
 
   @@id([tipo, anio])
 }
+
+/// Datos de la empresa que usan cotizaciones, PDF y pie de página. Siempre hay una sola fila (id = "empresa").
+model ConfiguracionEmpresa {
+  id                     String   @id @default("empresa")
+  nombreComercial        String
+  razonSocial            String?
+  rfc                    String?
+  regimenFiscal          String?
+  codigoPostal           String?
+  correo                 String?
+  telefono               String?
+  sitioWeb               String?
+  /// Logo en PNG, guardado en la base (límite de tamaño en la API).
+  logoPng                Bytes?
+  condicionesCotizacion  String
+  vigenciaDiasDefault    Int      @default(15)
+  prefijoFolioCotizacion String   @default("COT")
+  actualizadoPorId       String?
+  actualizadoEn          DateTime @updatedAt
+}

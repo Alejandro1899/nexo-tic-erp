@@ -6,6 +6,7 @@ import { usuariosRouter } from "./modules/usuarios/usuarios.routes.js";
 import { categoriasRouter } from "./modules/categorias/categorias.routes.js";
 import { cotizacionesRouter } from "./modules/cotizaciones/cotizaciones.routes.js";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes.js";
+import { configuracionRouter } from "./modules/configuracion/configuracion.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 
@@ -49,6 +50,7 @@ export function createApp(): Express {
   app.use("/api/categorias", categoriasRouter);
   app.use("/api/cotizaciones", cotizacionesRouter);
   app.use("/api/dashboard", dashboardRouter);
+  app.use("/api/configuracion", configuracionRouter);
 
   app.use(errorHandler);
   return app;
