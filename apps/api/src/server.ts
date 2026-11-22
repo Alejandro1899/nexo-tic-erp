@@ -7,7 +7,8 @@ try {
 
 const { createApp } = await import("./app.js");
 
-const port = Number(process.env.API_PORT ?? 4000);
+// Render asigna el puerto en PORT; en local se usa API_PORT (por defecto 4000).
+const port = Number(process.env.PORT ?? process.env.API_PORT ?? 4000);
 createApp().listen(port, () => {
   console.log(`API escuchando en http://localhost:${port}`);
 });

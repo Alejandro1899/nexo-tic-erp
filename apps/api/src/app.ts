@@ -9,9 +9,36 @@ import { dashboardRouter } from "./modules/dashboard/dashboard.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 
+/**
+ * CORS con credenciales: solo los orígenes de WEB_ORIGIN (separados por comas) pueden
+ * llamar al API desde el navegador, y la cookie de sesión viaja con ellos.
+ */
+function cors(): express.RequestHandler {
+  const permitidos = (process.env.WEB_ORIGIN ?? "http://localhost:5173")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+  return (req, res, next) => {
+    const origen = req.headers.origin;
+    if (origen && permitidos.includes(origen)) {
+      res.setHeader("Access-Control-Allow-Origin", origen);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      res.setHeader("Vary", "Origin");
+    }
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
+    next();
+  };
+}
+
 export function createApp(): Express {
   const app = express();
   app.disable("x-powered-by");
+  app.use(cors());
   app.use(express.json({ limit: "100kb" }));
 
   app.use("/api/health", healthRouter);
