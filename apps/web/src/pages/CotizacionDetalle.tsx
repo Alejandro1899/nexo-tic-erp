@@ -127,7 +127,7 @@ export function CotizacionDetalle() {
   return (
     <section>
       {empresa && (
-        <header className="solo-imprimir encabezado-impresion">
+        <div className="solo-imprimir encabezado-impresion">
           <div>
             {empresa.tieneLogo && <img src={`${BASE_API}/api/configuracion/logo`} alt={empresa.nombreComercial} />}
             <strong>{empresa.razonSocial ?? empresa.nombreComercial}</strong>
@@ -141,7 +141,7 @@ export function CotizacionDetalle() {
             <div>Fecha: {new Date(cotizacion.creadoEn).toLocaleDateString("es-MX")}</div>
             <div>Vigente hasta: {new Date(cotizacion.vigenciaHasta).toLocaleDateString("es-MX")}</div>
           </div>
-        </header>
+        </div>
       )}
 
       <div className="barra no-imprimir">
