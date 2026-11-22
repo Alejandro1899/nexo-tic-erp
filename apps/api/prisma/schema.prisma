@@ -1,5 +1,5 @@
-// Esquema base. Todo cambio de modelo se hace con una migración de Prisma:
-//   pnpm --filter @nexo/api db:migrate
+// Esquema base de NEXOTIC ERP (v1, una sola empresa). Todo cambio de modelo se hace con una migración de Prisma:
+//   pnpm --filter @nexo/api exec prisma migrate dev --name <nombre>
 // Ningún cambio de base de datos se hace a mano.
 
 generator client {
@@ -11,22 +11,178 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Empresa cliente del SaaS. Raíz del aislamiento: toda tabla de negocio lleva tenantId.
-model Tenant {
-  id        String   @id @default(cuid())
-  nombre    String
-  creadoEn  DateTime @default(now())
-  usuarios  Usuario[]
+enum Rol {
+  ADMIN
+  VENDEDOR
+  TECNICO
+  DIRECCION
+}
+
+enum TipoCliente {
+  PERSONA_FISICA
+  PERSONA_MORAL
+  NEGOCIO_SIN_CONSTITUCION
+}
+
+enum EstadoCliente {
+  EN_REVISION
+  EN_PROCESO
+  ACTIVO
+  SUSPENDIDO
+  FINALIZADO
+}
+
+enum UnidadCobro {
+  HORA
+  PROYECTO
+  MENSUALIDAD
+}
+
+enum EstadoCotizacion {
+  BORRADOR
+  ENVIADA
+  APROBADA
+  RECHAZADA
 }
 
 model Usuario {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  email     String
-  nombre    String
+  id                  String    @id @default(cuid())
+  /// Nombre para mostrar.
+  nombre              String
+  /// Usuario de acceso: único, minúsculas, sin espacios. Se entra con él o con el correo.
+  username            String    @unique
+  email               String    @unique
+  passwordHash        String
+  rol                 Rol       @default(VENDEDOR)
+  activo              Boolean   @default(true)
+  /// Super administrador: nadie más lo puede eliminar, desactivar, cambiar de rol ni restablecer su contraseña.
+  esSuperAdmin        Boolean   @default(false)
+  /// true cuando un ADMIN asignó una contraseña temporal: el usuario debe cambiarla al entrar.
+  debeCambiarPassword Boolean   @default(false)
+  ultimoAcceso        DateTime?
+  /// Borrado lógico: el registro se conserva para el historial.
+  eliminadoEn         DateTime?
+  creadoPorId         String?
+  creadoEn            DateTime  @default(now())
+  actualizadoEn       DateTime  @updatedAt
+  sesiones            Sesion[]
+}
+
+model Sesion {
+  id        String   @id // SHA-256 del token. El token en claro nunca se guarda.
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  expiraEn  DateTime
   creadoEn  DateTime @default(now())
 
-  @@unique([tenantId, email])
-  @@index([tenantId])
+  @@index([expiraEn])
+}
+
+model Cliente {
+  id                      String            @id @default(cuid())
+  nombre                  String
+  tipo                    TipoCliente
+  estado                  EstadoCliente     @default(EN_REVISION)
+  rfc                     String?           @unique
+  razonSocial             String?
+  regimenFiscal           String?
+  codigoPostal            String?
+  datosFiscalesPendientes Boolean           @default(false)
+  creadoPorId             String?
+  eliminadoEn             DateTime?
+  creadoEn                DateTime          @default(now())
+  actualizadoEn           DateTime          @updatedAt
+  serviciosAsignados      ClienteServicio[]
+  cotizaciones            Cotizacion[]
+}
+
+/// Categoría del catálogo (por ejemplo Soporte, Redes, Desarrollo). Opcional por servicio.
+model CategoriaServicio {
+  id            String     @id @default(cuid())
+  nombre        String     @unique
+  creadoPorId   String?
+  eliminadoEn   DateTime?
+  creadoEn      DateTime   @default(now())
+  actualizadoEn DateTime   @updatedAt
+  servicios     Servicio[]
+}
+
+/// Catálogo de servicios con unidad de cobro y tarifa. La tarifa va en centavos enteros.
+model Servicio {
+  id                String              @id @default(cuid())
+  nombre            String
+  categoriaId       String?
+  categoria         CategoriaServicio?  @relation(fields: [categoriaId], references: [id])
+  unidad            UnidadCobro
+  tarifaCentavos    Int
+  activo            Boolean             @default(true)
+  creadoPorId       String?
+  eliminadoEn       DateTime?
+  creadoEn          DateTime            @default(now())
+  actualizadoEn     DateTime            @updatedAt
+  clientesAsignados ClienteServicio[]
+  partidas          CotizacionPartida[]
+}
+
+/// Servicio asignado a un cliente, con tarifa acordada opcional. Sin tarifa propia se usa la del catálogo.
+model ClienteServicio {
+  id             String    @id @default(cuid())
+  clienteId      String
+  cliente        Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  servicioId     String
+  servicio       Servicio  @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+  tarifaCentavos Int?
+  creadoPorId    String?
+  eliminadoEn    DateTime?
+  creadoEn       DateTime  @default(now())
+  actualizadoEn  DateTime  @updatedAt
+
+  @@unique([clienteId, servicioId])
+}
+
+/// Cotización para un cliente. El total lo calcula el servidor con el módulo de montos de packages/shared.
+model Cotizacion {
+  id                String              @id @default(cuid())
+  folio             String              @unique
+  clienteId         String
+  cliente           Cliente             @relation(fields: [clienteId], references: [id])
+  estado            EstadoCotizacion    @default(BORRADOR)
+  vigenciaHasta     DateTime
+  notas             String?
+  subtotalCentavos  Int                 @default(0)
+  descuentoCentavos Int                 @default(0)
+  ivaCentavos       Int                 @default(0)
+  totalCentavos     Int                 @default(0)
+  creadoPorId       String?
+  enviadaEn         DateTime?
+  autorizadaPorId   String?
+  autorizadaEn      DateTime?
+  eliminadoEn       DateTime?
+  creadoEn          DateTime            @default(now())
+  actualizadoEn     DateTime            @updatedAt
+  partidas          CotizacionPartida[]
+}
+
+model CotizacionPartida {
+  id                     String     @id @default(cuid())
+  cotizacionId           String
+  cotizacion             Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  orden                  Int
+  servicioId             String?
+  servicio               Servicio?  @relation(fields: [servicioId], references: [id])
+  descripcion            String
+  cantidadMilesimas      Int
+  precioUnitarioCentavos Int
+  descuentoPb            Int        @default(0)
+  importeCentavos        Int
+  descuentoCentavos      Int        @default(0)
+}
+
+/// Consecutivo por tipo y año para los folios (COT-2026-0001).
+model Consecutivo {
+  tipo  String
+  anio  Int
+  valor Int    @default(0)
+
+  @@id([tipo, anio])
 }

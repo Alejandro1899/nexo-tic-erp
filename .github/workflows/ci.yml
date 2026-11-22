@@ -37,7 +37,7 @@ jobs:
           pnpm --filter @nexo/api db:deploy
       - name: Lint y tipos
         run: pnpm typecheck
-      - name: Pruebas (incluye cálculo de totales y aislamiento por tenant)
+      - name: Pruebas (incluye cálculo de totales y permisos por rol)
         run: pnpm test
       - name: Build
         run: pnpm build
