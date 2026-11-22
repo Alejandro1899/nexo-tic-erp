@@ -78,6 +78,10 @@ button:disabled { opacity: 0.6; }
   .tarjeta, .barra { box-shadow: none; background: #fff; padding: 0; }
   table, th, td { font-size: 11pt; }
   th, td { padding: 0.35rem 0.4rem; }
-  tr, table { break-inside: avoid; }
+  /* Las tablas vuelven a su disposición normal: el desplazamiento de pantalla confunde la paginación de impresión. */
+  main table, .tabla-scroll { display: table !important; overflow: visible !important; white-space: normal !important; width: 100%; }
+  main table thead, main table tbody { display: table-row-group; }
+  main table tr { display: table-row; break-inside: avoid; }
+  main table th, main table td { display: table-cell; }
   .condiciones-impresion { margin-top: 1rem; font-size: 10pt; white-space: pre-line; }
 }
