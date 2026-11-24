@@ -1,3 +1,4 @@
+/** Rutas de la web. Las rutas protegidas pasan por Protegida (sesión) y, cuando hace falta, por SoloAdmin o AdminODireccion. Son ayuda visual: el backend vuelve a validar cada permiso. */
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth";

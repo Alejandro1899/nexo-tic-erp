@@ -1,3 +1,4 @@
+/** Acceso: login (con correo o usuario), logout, datos del usuario actual y cambio de contraseña. */
 import { Router } from "express";
 import { z } from "zod";
 import { CambiarPasswordSchema } from "@nexo/shared";

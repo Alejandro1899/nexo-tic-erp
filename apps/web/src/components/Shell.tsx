@@ -1,3 +1,4 @@
+/** Estructura de la app: barra lateral en escritorio y cajón en móvil. El menú solo oculta opciones; el backend es quien niega accesos. */
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";

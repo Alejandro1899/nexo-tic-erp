@@ -1,3 +1,4 @@
+/** Secciones del detalle de cliente: servicios asignados y cotizaciones del cliente. */
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { formatearMXN, pesosACentavos } from "@nexo/shared";

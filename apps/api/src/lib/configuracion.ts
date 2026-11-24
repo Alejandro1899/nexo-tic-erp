@@ -1,3 +1,4 @@
+/** Acceso a la fila única de configuración de la empresa. Si no existe, la crea con valores por defecto. */
 import { prisma } from "./db.js";
 
 /** Valores de respaldo si la fila de configuración no existe. Coinciden con la migración inicial. */

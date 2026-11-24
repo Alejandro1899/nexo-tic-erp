@@ -1,3 +1,4 @@
+/** Catálogo de servicios. Lectura para todos los roles; alta y edición para ADMIN y DIRECCION; borrado solo para ADMIN. */
 import { Router } from "express";
 import { ServicioActualizarSchema, ServicioCrearSchema } from "@nexo/shared";
 import { ruta } from "../../lib/async.js";

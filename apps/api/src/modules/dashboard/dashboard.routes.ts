@@ -1,3 +1,4 @@
+/** Indicadores por rol. El servidor decide qué datos salen: VENDEDOR solo ve sus cotizaciones y TECNICO no ve cotizaciones. */
 import { Router } from "express";
 import { ruta } from "../../lib/async.js";
 import { prisma } from "../../lib/db.js";

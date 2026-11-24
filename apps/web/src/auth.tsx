@@ -1,9 +1,10 @@
+/** Sesión del usuario en la web: consulta /api/auth/me al cargar y expone login, logout y cambio de contraseña. */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api } from "./api";
 
 export type Rol = "ADMIN" | "VENDEDOR" | "TECNICO" | "DIRECCION";
 
-export interface SesionUI {
+interface SesionUI {
   usuario: {
     id: string;
     nombre: string;

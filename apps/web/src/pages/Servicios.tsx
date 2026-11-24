@@ -6,7 +6,7 @@ import { Badge } from "../components/Badge";
 
 type Unidad = "HORA" | "PROYECTO" | "MENSUALIDAD";
 
-export interface Categoria {
+interface Categoria {
   id: string;
   nombre: string;
 }

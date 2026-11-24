@@ -1,3 +1,4 @@
+/** Hash de contraseñas con scrypt (sin dependencias externas). Formato guardado: scrypt$<sal>$<hash>, en base64. */
 import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 
 /** Contraseña temporal legible de 12 caracteres (sin 0/O/1/l/I para no confundirla al dictarla). */

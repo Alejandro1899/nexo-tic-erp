@@ -1,3 +1,4 @@
+/** Gestión de usuarios: solo ADMIN. Protege al super administrador y nunca borra físicamente: usa borrado lógico. */
 import { Router } from "express";
 import { UsuarioActualizarSchema, UsuarioCrearSchema } from "@nexo/shared";
 import { ruta } from "../../lib/async.js";

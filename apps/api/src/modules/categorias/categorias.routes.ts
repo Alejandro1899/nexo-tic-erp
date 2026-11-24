@@ -1,3 +1,4 @@
+/** Categorías del catálogo. Eliminar una categoría deja sus servicios sin categoría; no borra los servicios. */
 import { Router } from "express";
 import { CategoriaCrearSchema } from "@nexo/shared";
 import { ruta } from "../../lib/async.js";

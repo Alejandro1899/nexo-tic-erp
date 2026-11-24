@@ -37,7 +37,7 @@ export const ETIQUETA_ESTADO: Record<Estado, string> = {
   FINALIZADO: "Finalizado",
 };
 
-export const TONO_ESTADO: Record<Estado, Tono> = {
+const TONO_ESTADO: Record<Estado, Tono> = {
   EN_REVISION: "amarillo",
   EN_PROCESO: "azul",
   ACTIVO: "verde",

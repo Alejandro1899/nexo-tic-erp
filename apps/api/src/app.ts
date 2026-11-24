@@ -1,3 +1,4 @@
+/** Arma la aplicación Express: CORS, JSON, rutas por módulo y el manejador de errores. Está separada de server.ts para poder probarla. */
 import express, { type Express } from "express";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { clientesRouter } from "./modules/clientes/clientes.routes.js";

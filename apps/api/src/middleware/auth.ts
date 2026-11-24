@@ -1,3 +1,4 @@
+/** Revisa la cookie de sesión y deja la sesión en res.locals.sesion para las rutas siguientes. */
 import type { RequestHandler } from "express";
 import { HttpError } from "../lib/errors.js";
 import { COOKIE_SESION, leerCookie } from "../lib/http.js";

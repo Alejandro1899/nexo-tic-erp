@@ -1,3 +1,4 @@
+/** Sesiones con cookie httpOnly. En la base solo se guarda el hash SHA-256 del token: si alguien roba la base, no puede entrar con esos datos. */
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "../../lib/db.js";
 import { DURACION_SESION_SEG } from "../../lib/http.js";

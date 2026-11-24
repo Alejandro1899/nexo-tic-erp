@@ -1,3 +1,4 @@
+/** Clientes, contactos y servicios asignados. Borrado lógico (eliminadoEn); el folio del cliente se genera aquí, en el servidor. */
 import { Router } from "express";
 import type { Prisma } from "@prisma/client";
 import {

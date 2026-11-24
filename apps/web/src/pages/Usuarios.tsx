@@ -25,7 +25,7 @@ export const ETIQUETA_ROL: Record<Rol, string> = {
 };
 
 /** Estado del usuario con color (ALCANCE 4.12). Prioridad: inactivo, luego contraseña temporal. */
-export function estadoUsuario(u: Usuario): { tono: Tono; texto: string } {
+function estadoUsuario(u: Usuario): { tono: Tono; texto: string } {
   if (!u.activo) return { tono: "gris", texto: "Inactivo" };
   if (u.debeCambiarPassword) return { tono: "ambar", texto: "Debe cambiar contraseña" };
   return { tono: "verde", texto: "Activo" };

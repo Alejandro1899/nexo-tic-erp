@@ -1,3 +1,4 @@
+/** Pantalla de inicio: indicadores y gráficas (Recharts). Los datos llegan de /api/dashboard ya filtrados por rol. */
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";

@@ -1,3 +1,4 @@
+/** Cliente HTTP de la web: siempre envía la cookie de sesión y convierte los errores del API en ApiError. */
 export class ApiError extends Error {
   constructor(
     public readonly status: number,

@@ -3,7 +3,7 @@ import { calcularTotales, formatearMXN, importeLinea, pesosACentavos } from "@ne
 import { api, mensajeError } from "../api";
 import { useAuth } from "../auth";
 
-export interface ServicioCatalogo {
+interface ServicioCatalogo {
   id: string;
   nombre: string;
   unidad: string;
@@ -11,7 +11,7 @@ export interface ServicioCatalogo {
   activo: boolean;
 }
 
-export interface ServicioAsignado {
+interface ServicioAsignado {
   id: string;
   nombre: string;
   tarifaEfectivaCentavos: number;

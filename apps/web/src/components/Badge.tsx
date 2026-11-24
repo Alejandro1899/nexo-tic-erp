@@ -1,3 +1,4 @@
+/** Insignia de color para los estados (ALCANCE 4.12). Los tonos son fijos para que todo el sistema use los mismos colores. */
 import type { ReactNode } from "react";
 
 /** Colores de estado (ALCANCE 4.12). Siempre va con texto, nunca solo color. */

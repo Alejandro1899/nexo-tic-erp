@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { formatearMXN } from "@nexo/shared";
 import { api, ApiError, mensajeError } from "../api";
-import { useAuth } from "../auth";
+import { esAdminODireccion, useAuth } from "../auth";
 import { CotizacionFormulario } from "../components/CotizacionFormulario";
 import { EvidenciasCotizacion } from "../components/EvidenciasCotizacion";
 import { EstadoCotizacion } from "./Cotizaciones";
 
-export interface PartidaDetalle {
+interface PartidaDetalle {
   id: string;
   orden: number;
   servicioId: string | null;
@@ -91,8 +91,8 @@ export function CotizacionDetalle() {
   }
   if (!cotizacion) return <p>Cargando…</p>;
 
-  const esAdminODireccion = rol === "ADMIN" || rol === "DIRECCION";
-  const puedeGestionar = esAdminODireccion || cotizacion.creadoPorId === miId;
+  const puedeAdministrar = esAdminODireccion(rol);
+  const puedeGestionar = puedeAdministrar || cotizacion.creadoPorId === miId;
   const esBorrador = cotizacion.estado === "BORRADOR";
   const esEnviada = cotizacion.estado === "ENVIADA";
   const vencida = cotizacion.estadoMostrado === "VENCIDA";
@@ -122,13 +122,13 @@ export function CotizacionDetalle() {
         {esBorrador && puedeGestionar && (
           <button onClick={() => void accion(`/api/cotizaciones/${cotizacion.id}/enviar`, "POST")}>Enviar a autorización</button>
         )}
-        {esEnviada && !vencida && esAdminODireccion && (
+        {esEnviada && !vencida && puedeAdministrar && (
           <>
             <button onClick={() => void accion(`/api/cotizaciones/${cotizacion.id}/aprobar`, "POST", "¿Aprobar esta cotización?")}>Aprobar</button>
             <button onClick={() => void accion(`/api/cotizaciones/${cotizacion.id}/rechazar`, "POST", "¿Rechazar esta cotización?")}>Rechazar</button>
           </>
         )}
-        {cotizacion.estado === "APROBADA" && esAdminODireccion && (
+        {cotizacion.estado === "APROBADA" && puedeAdministrar && (
           <>
             <button
               onClick={() =>
@@ -148,7 +148,7 @@ export function CotizacionDetalle() {
             </button>
           </>
         )}
-        {cotizacion.estado === "RECHAZADA" && esAdminODireccion && (
+        {cotizacion.estado === "RECHAZADA" && puedeAdministrar && (
           <button
             onClick={() =>
               void accion(`/api/cotizaciones/${cotizacion.id}/cambiar-estado`, "POST", "¿Regresar esta cotización a borrador? Habrá que volver a enviarla.", {
@@ -186,7 +186,7 @@ export function CotizacionDetalle() {
             <th>Precio</th>
             <th>Desc. %</th>
             <th>Descuento</th>
-            {esAdminODireccion && <th>Costo (interno)</th>}
+            {puedeAdministrar && <th>Costo (interno)</th>}
             <th>Importe neto</th>
           </tr>
         </thead>
@@ -198,7 +198,7 @@ export function CotizacionDetalle() {
               <td>{formatearMXN(p.precioUnitarioCentavos)}</td>
               <td>{p.descuentoPb / 100} %</td>
               <td>{formatearMXN(p.descuentoCentavos)}</td>
-              {esAdminODireccion && <td>{p.costoUnitarioCentavos == null ? "—" : formatearMXN(p.costoUnitarioCentavos)}</td>}
+              {puedeAdministrar && <td>{p.costoUnitarioCentavos == null ? "—" : formatearMXN(p.costoUnitarioCentavos)}</td>}
               <td>{formatearMXN(p.importeCentavos - p.descuentoCentavos)}</td>
             </tr>
           ))}
@@ -222,9 +222,9 @@ export function CotizacionDetalle() {
         <dd>{formatearMXN(cotizacion.saldoCentavos)}</dd>
       </dl>
 
-      {esAdminODireccion && <EvidenciasCotizacion cotizacionId={cotizacion.id} />}
+      {puedeAdministrar && <EvidenciasCotizacion cotizacionId={cotizacion.id} />}
 
-      {esAdminODireccion && (
+      {puedeAdministrar && (
         <div className="tarjeta">
           <h3>Interno: costos y utilidad</h3>
           <p>Esta sección no aparece en la impresión ni la ve el cliente.</p>

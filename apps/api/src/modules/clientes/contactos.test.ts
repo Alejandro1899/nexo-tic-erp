@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import request from "supertest";
-import { app, crearUsuarioPrueba, limpiarPruebas, loginComo, PREFIJO_PRUEBA } from "../../testing/helpers.js";
+import { crearUsuarioPrueba, limpiarPruebas, loginComo, PREFIJO_PRUEBA } from "../../testing/helpers.js";
 
 // Contactos del cliente y folio CLI-0001 (docs/PLAN-FALTANTES-V1.md, fase 1).
 describe("contactos y folio de cliente", () => {

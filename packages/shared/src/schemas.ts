@@ -1,3 +1,4 @@
+/** Reglas de validación compartidas por el API y la web (Zod). Si una regla cambia, cámbiala aquí y no en los formularios. */
 import { z } from "zod";
 
 // Valores según docs/ALCANCE-NEXOTIC-ERP.md (secciones 4.1, 4.2 y 5).
@@ -7,7 +8,7 @@ export const TipoCliente =z.enum(["PERSONA_FISICA", "PERSONA_MORAL", "NEGOCIO_SI
 export const EstadoCliente = z.enum(["EN_REVISION", "EN_PROCESO", "ACTIVO", "SUSPENDIDO", "FINALIZADO"]);
 export const UnidadCobro = z.enum(["HORA", "PROYECTO", "MENSUALIDAD"]);
 
-export const rfcSchema = z
+const rfcSchema = z
   .string()
   .trim()
   .toUpperCase()

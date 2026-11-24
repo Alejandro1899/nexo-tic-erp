@@ -14,7 +14,7 @@ export const ETIQUETA_COTIZACION: Record<string, string> = {
   VENCIDA: "Vencida",
 };
 
-export const TONO_COTIZACION: Record<string, Tono> = {
+const TONO_COTIZACION: Record<string, Tono> = {
   BORRADOR: "gris",
   ENVIADA: "azul",
   APROBADA: "verde",

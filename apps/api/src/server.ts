@@ -1,3 +1,4 @@
+/** Punto de entrada: arranca el servidor HTTP en el puerto indicado por API_PORT (4000 por defecto). */
 export {};
 try {
   process.loadEnvFile(".env");
