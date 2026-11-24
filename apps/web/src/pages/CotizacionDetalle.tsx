@@ -4,6 +4,7 @@ import { formatearMXN } from "@nexo/shared";
 import { api, ApiError, mensajeError } from "../api";
 import { useAuth } from "../auth";
 import { CotizacionFormulario } from "../components/CotizacionFormulario";
+import { EvidenciasCotizacion } from "../components/EvidenciasCotizacion";
 import { EstadoCotizacion } from "./Cotizaciones";
 
 export interface PartidaDetalle {
@@ -220,6 +221,8 @@ export function CotizacionDetalle() {
         <dt>Saldo</dt>
         <dd>{formatearMXN(cotizacion.saldoCentavos)}</dd>
       </dl>
+
+      {esAdminODireccion && <EvidenciasCotizacion cotizacionId={cotizacion.id} />}
 
       {esAdminODireccion && (
         <div className="tarjeta">

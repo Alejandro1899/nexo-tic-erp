@@ -24,6 +24,8 @@ export const ACCIONES_BITACORA = [
   "cotizacion.rechazar",
   "cotizacion.cambiar_estado",
   "cotizacion.eliminar",
+  "cotizacion.evidencia.subir",
+  "cotizacion.evidencia.eliminar",
   "usuario.crear",
   "usuario.editar",
   "usuario.eliminar",

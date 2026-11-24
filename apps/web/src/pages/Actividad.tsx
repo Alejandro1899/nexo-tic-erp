@@ -35,6 +35,8 @@ const ETIQUETA_ACCION: Record<string, string> = {
   "cotizacion.rechazar": "Rechazó cotización",
   "cotizacion.cambiar_estado": "Cambió estado de cotización",
   "cotizacion.eliminar": "Eliminó borrador",
+  "cotizacion.evidencia.subir": "Subió evidencia de cotización",
+  "cotizacion.evidencia.eliminar": "Quitó evidencia de cotización",
   "usuario.crear": "Creó usuario",
   "usuario.editar": "Editó usuario",
   "usuario.eliminar": "Eliminó usuario",

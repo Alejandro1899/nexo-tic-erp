@@ -203,6 +203,23 @@ model Cotizacion {
   creadoEn          DateTime            @default(now())
   actualizadoEn     DateTime            @updatedAt
   partidas          CotizacionPartida[]
+  evidencias        EvidenciaCotizacion[]
+}
+
+/// Evidencia de aprobación: cotización firmada u otro documento que respalda la decisión. Se guarda ya comprimida.
+model EvidenciaCotizacion {
+  id           String     @id @default(cuid())
+  cotizacionId String
+  cotizacion   Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  nombre       String
+  tipo         String
+  tamanoBytes  Int
+  contenido    Bytes
+  subidoPorId  String?
+  creadoEn     DateTime   @default(now())
+  eliminadoEn  DateTime?
+
+  @@index([cotizacionId])
 }
 
 model CotizacionPartida {

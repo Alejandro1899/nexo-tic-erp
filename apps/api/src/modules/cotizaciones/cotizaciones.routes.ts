@@ -1,4 +1,5 @@
-import { Router } from "express";
+import express, { Router } from "express";
+import { EVIDENCIA_MAX_BYTES, EVIDENCIA_MAX_POR_COTIZACION, EVIDENCIA_TIPOS, FIRMAS_EVIDENCIA } from "@nexo/shared";
 import type { Prisma } from "@prisma/client";
 import {
   CotizacionActualizarSchema,
@@ -435,6 +436,116 @@ cotizacionesRouter.post(
       cambios: { estado: { antes: actual.estado, despues: nuevo } },
     });
     res.json({ cotizacion: vistaCotizacion(cotizacion, sesion.rol) });
+  }),
+);
+
+/**
+ * Evidencia de aprobación (ALCANCE 4.3): cotización firmada u otro respaldo. Solo ADMIN y DIRECCION.
+ * El archivo viaja sin codificar en el cuerpo y se comprueba su firma (PDF, JPG o PNG).
+ */
+function soloAdminODireccion(sesion: SesionAutenticada) {
+  if (sesion.rol !== "ADMIN" && sesion.rol !== "DIRECCION") {
+    throw new HttpError(403, "prohibido", "Solo ADMIN o DIRECCION pueden ver o subir evidencias");
+  }
+}
+
+/** Nombre seguro para guardar y mostrar: sin rutas ni caracteres de control. */
+function nombreSeguro(nombre: string): string {
+  return nombre.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").trim().slice(0, 120) || "evidencia";
+}
+
+const recibirEvidencia = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  express.raw({ type: [...EVIDENCIA_TIPOS], limit: EVIDENCIA_MAX_BYTES })(req, res, (err?: unknown) => {
+    if (err) return next(new HttpError(413, "archivo_muy_grande", "El archivo supera el límite de 5 MB. Compra un escaneo de menor resolución."));
+    next();
+  });
+};
+
+cotizacionesRouter.get(
+  "/:id/evidencias",
+  ruta(async (req, res) => {
+    soloAdminODireccion(sesionDe(res));
+    const cotizacion = await cotizacionVigente(String(req.params.id));
+    const evidencias = await prisma.evidenciaCotizacion.findMany({
+      where: { cotizacionId: cotizacion.id, eliminadoEn: null },
+      select: { id: true, nombre: true, tipo: true, tamanoBytes: true, creadoEn: true },
+      orderBy: { creadoEn: "asc" },
+    });
+    res.json({ evidencias });
+  }),
+);
+
+cotizacionesRouter.get(
+  "/:id/evidencias/:evidenciaId",
+  ruta(async (req, res) => {
+    soloAdminODireccion(sesionDe(res));
+    const evidencia = await prisma.evidenciaCotizacion.findFirst({
+      where: { id: String(req.params.evidenciaId), cotizacionId: String(req.params.id), eliminadoEn: null },
+    });
+    if (!evidencia) throw new HttpError(404, "no_encontrado", "Evidencia no encontrada");
+    res.setHeader("Content-Type", evidencia.tipo);
+    res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(evidencia.nombre)}`);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(Buffer.from(evidencia.contenido));
+  }),
+);
+
+cotizacionesRouter.post(
+  "/:id/evidencias",
+  recibirEvidencia,
+  ruta(async (req, res) => {
+    const sesion = sesionDe(res);
+    soloAdminODireccion(sesion);
+    const cotizacion = await cotizacionVigente(String(req.params.id));
+    const bytes = req.body;
+    if (!Buffer.isBuffer(bytes) || bytes.length === 0) {
+      throw new HttpError(400, "archivo_invalido", "Envía un archivo PDF, JPG o PNG en el cuerpo de la petición");
+    }
+    const tipo = (req.headers["content-type"] ?? "").split(";")[0]?.trim() as (typeof EVIDENCIA_TIPOS)[number];
+    if (!EVIDENCIA_TIPOS.includes(tipo)) throw new HttpError(415, "tipo_no_permitido", "Solo se aceptan PDF, JPG o PNG");
+    const firma = Buffer.from(FIRMAS_EVIDENCIA[tipo]);
+    if (!bytes.subarray(0, firma.length).equals(firma)) {
+      throw new HttpError(400, "archivo_invalido", "El contenido del archivo no coincide con su tipo");
+    }
+    const cuenta = await prisma.evidenciaCotizacion.count({ where: { cotizacionId: cotizacion.id, eliminadoEn: null } });
+    if (cuenta >= EVIDENCIA_MAX_POR_COTIZACION) {
+      throw new HttpError(409, "limite_alcanzado", `Una cotización admite hasta ${EVIDENCIA_MAX_POR_COTIZACION} evidencias`);
+    }
+    const nombre = nombreSeguro(typeof req.query.nombre === "string" ? req.query.nombre : "evidencia");
+    const evidencia = await prisma.evidenciaCotizacion.create({
+      data: { cotizacionId: cotizacion.id, nombre, tipo, tamanoBytes: bytes.length, contenido: bytes, subidoPorId: sesion.usuarioId },
+      select: { id: true, nombre: true, tipo: true, tamanoBytes: true, creadoEn: true },
+    });
+    await registrarActividad({
+      usuarioId: sesion.usuarioId,
+      accion: "cotizacion.evidencia.subir",
+      entidad: "cotizacion",
+      entidadId: cotizacion.id,
+      resumen: `Subió la evidencia "${nombre}" a la cotización ${cotizacion.folio}`,
+    });
+    res.status(201).json({ evidencia });
+  }),
+);
+
+cotizacionesRouter.delete(
+  "/:id/evidencias/:evidenciaId",
+  ruta(async (req, res) => {
+    const sesion = sesionDe(res);
+    soloAdminODireccion(sesion);
+    const evidencia = await prisma.evidenciaCotizacion.findFirst({
+      where: { id: String(req.params.evidenciaId), cotizacionId: String(req.params.id), eliminadoEn: null },
+      include: { cotizacion: { select: { folio: true } } },
+    });
+    if (!evidencia) throw new HttpError(404, "no_encontrado", "Evidencia no encontrada");
+    await prisma.evidenciaCotizacion.update({ where: { id: evidencia.id }, data: { eliminadoEn: new Date() } });
+    await registrarActividad({
+      usuarioId: sesion.usuarioId,
+      accion: "cotizacion.evidencia.eliminar",
+      entidad: "cotizacion",
+      entidadId: evidencia.cotizacionId,
+      resumen: `Quitó la evidencia "${evidencia.nombre}" de la cotización ${evidencia.cotizacion.folio}`,
+    });
+    res.status(204).end();
   }),
 );
 
