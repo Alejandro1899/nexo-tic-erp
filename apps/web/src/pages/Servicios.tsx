@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { formatearMXN, pesosACentavos } from "@nexo/shared";
 import { api, mensajeError } from "../api";
 import { esAdminODireccion, useAuth } from "../auth";
+import { Badge } from "../components/Badge";
 
 type Unidad = "HORA" | "PROYECTO" | "MENSUALIDAD";
 
@@ -54,6 +55,7 @@ export function Servicios() {
         {puedeEditar && <button onClick={() => setEditando("nuevo")}>Nuevo servicio</button>}
       </div>
       {error && <p className="error">{error}</p>}
+      <p className="contador">{servicios.length} servicio{servicios.length === 1 ? "" : "s"} en el catálogo</p>
 
       {editando && puedeEditar && (
         <ServicioForm
@@ -80,11 +82,15 @@ export function Servicios() {
         <tbody>
           {servicios.map((s) => (
             <tr key={s.id} onClick={puedeEditar ? () => setEditando(s) : undefined} className={puedeEditar ? "fila" : undefined}>
-              <td>{s.nombre}</td>
+              <td>
+                <strong>{s.nombre}</strong>
+              </td>
               <td>{s.categoria?.nombre ?? "—"}</td>
               <td>{ETIQUETA_UNIDAD[s.unidad]}</td>
-              <td>{formatearMXN(s.tarifaCentavos)}</td>
-              <td>{s.activo ? "Activo" : "Inactivo"}</td>
+              <td className="num">{formatearMXN(s.tarifaCentavos)}</td>
+              <td>
+                <Badge tono={s.activo ? "verde" : "gris"}>{s.activo ? "Activo" : "Inactivo"}</Badge>
+              </td>
             </tr>
           ))}
           {servicios.length === 0 && (

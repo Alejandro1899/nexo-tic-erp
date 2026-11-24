@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 
 export function Shell() {
   const { sesion, logout } = useAuth();
   const navigate = useNavigate();
+  const [abierto, setAbierto] = useState(false);
   if (!sesion) return null;
   const esAdmin = sesion.usuario.rol === "ADMIN";
 
@@ -14,9 +16,24 @@ export function Shell() {
 
   return (
     <div className="app">
-      <header>
-        <strong>NEXO TIC ERP</strong>
-        <nav>
+      <header className="topbar-movil">
+        <button className="hamburguesa" aria-label="Abrir menú" aria-expanded={abierto} aria-controls="menu-principal" onClick={() => setAbierto(true)}>
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
+        <span>NEXOTIC</span>
+      </header>
+      {abierto && <div className="sidebar-velo" onClick={() => setAbierto(false)} aria-hidden="true" />}
+      <aside id="menu-principal" className={`sidebar${abierto ? " abierto" : ""}`}>
+        <div className="sidebar-marca">
+          <span className="sidebar-logo">N</span>
+          <span>
+            NEXOTIC
+            <small>ERP interno</small>
+          </span>
+        </div>
+        <nav onClick={() => setAbierto(false)}>
           <NavLink to="/" end>Inicio</NavLink>
           <NavLink to="/clientes">Clientes</NavLink>
           <NavLink to="/servicios">Catálogo</NavLink>
@@ -24,11 +41,11 @@ export function Shell() {
           {esAdmin && <NavLink to="/usuarios">Usuarios</NavLink>}
           {esAdmin && <NavLink to="/configuracion">Empresa</NavLink>}
         </nav>
-        <div className="usuario">
+        <div className="sidebar-usuario">
           {sesion.usuario.nombre} ({sesion.usuario.rol})
           <button onClick={salir}>Salir</button>
         </div>
-      </header>
+      </aside>
       <main>
         <Outlet />
       </main>
