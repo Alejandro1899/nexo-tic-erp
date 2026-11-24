@@ -68,6 +68,24 @@ model Usuario {
   sesiones            Sesion[]
 }
 
+/// Bitácora de actividad (solo se agrega). No tiene relación con Usuario: el registro sobrevive si la cuenta se elimina.
+model RegistroActividad {
+  id            String   @id @default(cuid())
+  creadoEn      DateTime @default(now())
+  usuarioId     String?
+  usuarioNombre String
+  accion        String
+  entidad       String
+  entidadId     String?
+  resumen       String
+  /// Valor anterior y nuevo de los campos clave. Nunca contraseñas.
+  cambios       Json?
+
+  @@index([creadoEn])
+  @@index([usuarioId])
+  @@index([entidad, entidadId])
+}
+
 model Sesion {
   id        String   @id // SHA-256 del token. El token en claro nunca se guarda.
   usuarioId String

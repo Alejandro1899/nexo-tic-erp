@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { UsuarioActualizarSchema, UsuarioCrearSchema } from "@nexo/shared";
 import { ruta } from "../../lib/async.js";
+import { CAMPOS_CLAVE, diferencias, registrarActividad } from "../../lib/bitacora.js";
 import { prisma } from "../../lib/db.js";
 import { HttpError, traducirErrorPrisma } from "../../lib/errors.js";
 import { generarPasswordTemporal, hashPassword } from "../../lib/password.js";
@@ -103,6 +104,13 @@ usuariosRouter.post(
           creadoPorId: usuarioId,
         },
       });
+      await registrarActividad({
+        usuarioId,
+        accion: "usuario.crear",
+        entidad: "usuario",
+        entidadId: usuario.id,
+        resumen: `Creó al usuario ${usuario.nombre} (${usuario.rol})`,
+      });
       res.status(201).json({ usuario: publico(usuario) });
     } catch (e) {
       throw traducirErrorPrisma(e);
@@ -129,6 +137,17 @@ usuariosRouter.patch(
       if (parsed.data.activo === false) {
         await prisma.sesion.deleteMany({ where: { usuarioId: usuario.id } });
       }
+      const cambios = diferencias(objetivo, usuario, CAMPOS_CLAVE.usuario);
+      if (cambios) {
+        await registrarActividad({
+          usuarioId: sesion.usuarioId,
+          accion: "usuario.editar",
+          entidad: "usuario",
+          entidadId: usuario.id,
+          resumen: `Editó al usuario ${usuario.nombre}`,
+          cambios,
+        });
+      }
       res.json({ usuario: publico(usuario) });
     } catch (e) {
       throw traducirErrorPrisma(e);
@@ -152,6 +171,13 @@ usuariosRouter.post(
       data: { passwordHash: await hashPassword(temporal), debeCambiarPassword: true },
     });
     await prisma.sesion.deleteMany({ where: { usuarioId: objetivo.id } });
+    await registrarActividad({
+      usuarioId: sesion.usuarioId,
+      accion: "usuario.restablecer_password",
+      entidad: "usuario",
+      entidadId: objetivo.id,
+      resumen: `Restableció la contraseña de ${objetivo.nombre}`,
+    });
     res.json({ passwordTemporal: temporal });
   }),
 );
@@ -171,6 +197,13 @@ usuariosRouter.delete(
       data: { eliminadoEn: new Date(), activo: false },
     });
     await prisma.sesion.deleteMany({ where: { usuarioId: objetivo.id } });
+    await registrarActividad({
+      usuarioId: sesion.usuarioId,
+      accion: "usuario.eliminar",
+      entidad: "usuario",
+      entidadId: objetivo.id,
+      resumen: `Eliminó (lógicamente) al usuario ${objetivo.nombre}`,
+    });
     res.status(204).end();
   }),
 );

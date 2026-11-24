@@ -9,6 +9,7 @@ import {
   datosFiscalesPendientes,
 } from "@nexo/shared";
 import { ruta } from "../../lib/async.js";
+import { CAMPOS_CLAVE, diferencias, registrarActividad } from "../../lib/bitacora.js";
 import { prisma } from "../../lib/db.js";
 import { HttpError, traducirErrorPrisma } from "../../lib/errors.js";
 import { requireAuth } from "../../middleware/auth.js";
@@ -84,6 +85,13 @@ clientesRouter.post(
           },
         });
       });
+      await registrarActividad({
+        usuarioId,
+        accion: "cliente.crear",
+        entidad: "cliente",
+        entidadId: cliente.id,
+        resumen: `Creó al cliente ${cliente.nombre}`,
+      });
       res.status(201).json({ cliente });
     } catch (e) {
       throw traducirErrorPrisma(e);
@@ -95,7 +103,7 @@ clientesRouter.patch(
   "/:id",
   requireRole("ADMIN", "DIRECCION"),
   ruta(async (req, res) => {
-    sesionDe(res);
+    const { usuarioId } = sesionDe(res);
     const parsed = ClienteActualizarSchema.safeParse(req.body);
     if (!parsed.success) {
       throw new HttpError(400, "datos_invalidos", parsed.error.issues[0]?.message ?? "Datos inválidos");
@@ -110,6 +118,17 @@ clientesRouter.patch(
           datosFiscalesPendientes: datosFiscalesPendientes({ ...actual, ...parsed.data }),
         },
       });
+      const cambios = diferencias(actual, cliente, CAMPOS_CLAVE.cliente);
+      if (cambios) {
+        await registrarActividad({
+          usuarioId,
+          accion: "cliente.editar",
+          entidad: "cliente",
+          entidadId: cliente.id,
+          resumen: `Editó al cliente ${cliente.nombre}`,
+          cambios,
+        });
+      }
       res.json({ cliente });
     } catch (e) {
       throw traducirErrorPrisma(e);
@@ -122,12 +141,17 @@ clientesRouter.delete(
   "/:id",
   requireRole("ADMIN"),
   ruta(async (req, res) => {
-    sesionDe(res);
-    const { count } = await prisma.cliente.updateMany({
-      where: { id: req.params.id, eliminadoEn: null },
-      data: { eliminadoEn: new Date() },
+    const { usuarioId } = sesionDe(res);
+    const actual = await prisma.cliente.findFirst({ where: { id: String(req.params.id), eliminadoEn: null } });
+    if (!actual) throw new HttpError(404, "no_encontrado", "Cliente no encontrado");
+    await prisma.cliente.update({ where: { id: actual.id }, data: { eliminadoEn: new Date() } });
+    await registrarActividad({
+      usuarioId,
+      accion: "cliente.eliminar",
+      entidad: "cliente",
+      entidadId: actual.id,
+      resumen: `Eliminó (lógicamente) al cliente ${actual.nombre}`,
     });
-    if (count === 0) throw new HttpError(404, "no_encontrado", "Cliente no encontrado");
     res.status(204).end();
   }),
 );
@@ -181,6 +205,13 @@ clientesRouter.post(
       create: { clienteId, servicioId: servicio.id, tarifaCentavos, creadoPorId: usuarioId },
       update: { tarifaCentavos, eliminadoEn: null },
     });
+    await registrarActividad({
+      usuarioId,
+      accion: "cliente.servicio.asignar",
+      entidad: "cliente",
+      entidadId: clienteId,
+      resumen: `Asignó "${servicio.nombre}" a ${cliente.nombre}${tarifaCentavos === null ? "" : " con tarifa propia"}`,
+    });
     res.status(201).json({ servicioId: servicio.id });
   }),
 );
@@ -190,12 +221,20 @@ clientesRouter.delete(
   "/:id/servicios/:servicioId",
   requireRole("ADMIN", "DIRECCION"),
   ruta(async (req, res) => {
-    sesionDe(res);
-    const { count } = await prisma.clienteServicio.updateMany({
+    const { usuarioId } = sesionDe(res);
+    const asignacion = await prisma.clienteServicio.findFirst({
       where: { clienteId: String(req.params.id), servicioId: String(req.params.servicioId), eliminadoEn: null },
-      data: { eliminadoEn: new Date() },
+      include: { servicio: { select: { nombre: true } }, cliente: { select: { nombre: true } } },
     });
-    if (count === 0) throw new HttpError(404, "no_encontrado", "El servicio no está asignado a este cliente");
+    if (!asignacion) throw new HttpError(404, "no_encontrado", "El servicio no está asignado a este cliente");
+    await prisma.clienteServicio.update({ where: { id: asignacion.id }, data: { eliminadoEn: new Date() } });
+    await registrarActividad({
+      usuarioId,
+      accion: "cliente.servicio.quitar",
+      entidad: "cliente",
+      entidadId: asignacion.clienteId,
+      resumen: `Quitó "${asignacion.servicio.nombre}" de ${asignacion.cliente.nombre}`,
+    });
     res.status(204).end();
   }),
 );

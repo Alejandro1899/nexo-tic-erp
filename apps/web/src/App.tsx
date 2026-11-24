@@ -14,6 +14,7 @@ import { Cotizaciones } from "./pages/Cotizaciones";
 import { CotizacionDetalle } from "./pages/CotizacionDetalle";
 import { CotizacionImprimir } from "./pages/CotizacionImprimir";
 import { Configuracion } from "./pages/Configuracion";
+import { Actividad } from "./pages/Actividad";
 import "./styles.css";
 
 function Protegida({ children }: { children: ReactNode }) {
@@ -22,6 +23,14 @@ function Protegida({ children }: { children: ReactNode }) {
   if (!sesion) return <Navigate to="/login" replace />;
   // Con contraseña inicial asignada, no se entra a la app hasta cambiarla.
   if (sesion.usuario.debeCambiarPassword) return <CambiarPassword />;
+  return <>{children}</>;
+}
+
+/** Bitácora: consulta para ADMIN y DIRECCION. El backend vuelve a validar cada acción. */
+function AdminODireccion({ children }: { children: ReactNode }) {
+  const { sesion } = useAuth();
+  const rol = sesion?.usuario.rol;
+  if (rol !== "ADMIN" && rol !== "DIRECCION") return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -50,6 +59,14 @@ export function App() {
           <Route path="cotizaciones" element={<Cotizaciones />} />
           <Route path="cotizaciones/:id" element={<CotizacionDetalle />} />
           <Route path="cotizaciones/:id/imprimir" element={<CotizacionImprimir />} />
+          <Route
+            path="actividad"
+            element={
+              <AdminODireccion>
+                <Actividad />
+              </AdminODireccion>
+            }
+          />
           <Route
             path="configuracion"
             element={

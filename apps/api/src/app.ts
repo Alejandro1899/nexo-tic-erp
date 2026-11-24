@@ -7,6 +7,7 @@ import { categoriasRouter } from "./modules/categorias/categorias.routes.js";
 import { cotizacionesRouter } from "./modules/cotizaciones/cotizaciones.routes.js";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes.js";
 import { configuracionRouter } from "./modules/configuracion/configuracion.routes.js";
+import { actividadRouter } from "./modules/actividad/actividad.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 
@@ -40,6 +41,8 @@ export function createApp(): Express {
   const app = express();
   app.disable("x-powered-by");
   app.use(cors());
+  // La importación de la bitácora trae un archivo grande; el resto de la API conserva el límite de 100 kb.
+  app.use("/api/actividad/importar", express.json({ limit: "50mb" }));
   app.use(express.json({ limit: "100kb" }));
 
   app.use("/api/health", healthRouter);
@@ -51,6 +54,7 @@ export function createApp(): Express {
   app.use("/api/cotizaciones", cotizacionesRouter);
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/configuracion", configuracionRouter);
+  app.use("/api/actividad", actividadRouter);
 
   app.use(errorHandler);
   return app;

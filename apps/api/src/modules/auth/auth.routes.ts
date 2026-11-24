@@ -4,6 +4,7 @@ import { CambiarPasswordSchema } from "@nexo/shared";
 import { ruta } from "../../lib/async.js";
 import { prisma } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
+import { registrarActividad } from "../../lib/bitacora.js";
 import { COOKIE_SESION, DURACION_SESION_SEG, cookieSesion, leerCookie } from "../../lib/http.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";
 import { requireAuth } from "../../middleware/auth.js";
@@ -51,10 +52,26 @@ authRouter.post(
       where: identificador.includes("@") ? { email: identificador } : { username: identificador },
     });
     const valido = usuario && usuario.activo && !usuario.eliminadoEn && (await verifyPassword(parsed.data.password, usuario.passwordHash));
-    if (!usuario || !valido) throw CREDENCIALES_INVALIDAS;
+    if (!usuario || !valido) {
+      await registrarActividad({
+        usuarioId: usuario?.id ?? null,
+        accion: "sesion.fallida",
+        entidad: "sesion",
+        entidadId: usuario?.id ?? null,
+        resumen: `Intento de acceso fallido con "${identificador}"`,
+      });
+      throw CREDENCIALES_INVALIDAS;
+    }
 
     await prisma.usuario.update({ where: { id: usuario.id }, data: { ultimoAcceso: new Date() } });
     const token = await crearSesion(usuario);
+    await registrarActividad({
+      usuarioId: usuario.id,
+      accion: "sesion.iniciar",
+      entidad: "sesion",
+      entidadId: usuario.id,
+      resumen: `${usuario.nombre} inició sesión`,
+    });
     res.setHeader("Set-Cookie", cookieSesion(token, DURACION_SESION_SEG));
     res.json({ usuario: datosUsuario(usuario) });
   }),

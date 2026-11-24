@@ -36,5 +36,9 @@ export async function limpiarPruebas() {
   await prisma.cliente.deleteMany({ where: { nombre: { startsWith: PREFIJO_PRUEBA } } });
   await prisma.servicio.deleteMany({ where: { nombre: { startsWith: PREFIJO_PRUEBA } } });
   await prisma.categoriaServicio.deleteMany({ where: { nombre: { startsWith: PREFIJO_PRUEBA } } });
+  // Registros de bitácora generados por las pruebas: solo los de usuarios o recursos de prueba.
+  await prisma.registroActividad.deleteMany({
+    where: { OR: [{ usuarioNombre: { startsWith: "Prueba " } }, { resumen: { contains: PREFIJO_PRUEBA.trim() } }] },
+  });
   await prisma.usuario.deleteMany({ where: { email: { endsWith: DOMINIO_PRUEBA } } });
 }

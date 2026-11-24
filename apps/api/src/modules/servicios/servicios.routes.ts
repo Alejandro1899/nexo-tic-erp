@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { ServicioActualizarSchema, ServicioCrearSchema } from "@nexo/shared";
 import { ruta } from "../../lib/async.js";
+import { CAMPOS_CLAVE, diferencias, registrarActividad } from "../../lib/bitacora.js";
 import { prisma } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { requireAuth } from "../../middleware/auth.js";
@@ -42,6 +43,13 @@ serviciosRouter.post(
     }
     await validarCategoria(parsed.data.categoriaId);
     const servicio = await prisma.servicio.create({ data: { ...parsed.data, creadoPorId: usuarioId } });
+    await registrarActividad({
+      usuarioId,
+      accion: "servicio.crear",
+      entidad: "servicio",
+      entidadId: servicio.id,
+      resumen: `Creó el servicio ${servicio.nombre}`,
+    });
     res.status(201).json({ servicio });
   }),
 );
@@ -50,16 +58,29 @@ serviciosRouter.patch(
   "/:id",
   requireRole("ADMIN", "DIRECCION"),
   ruta(async (req, res) => {
-    sesionDe(res);
+    const { usuarioId } = sesionDe(res);
     const id = String(req.params.id);
     const parsed = ServicioActualizarSchema.safeParse(req.body);
     if (!parsed.success) {
       throw new HttpError(400, "datos_invalidos", parsed.error.issues[0]?.message ?? "Datos inválidos");
     }
     await validarCategoria(parsed.data.categoriaId);
-    const { count } = await prisma.servicio.updateMany({ where: { id, eliminadoEn: null }, data: parsed.data });
-    if (count === 0) throw new HttpError(404, "no_encontrado", "Servicio no encontrado");
-    res.json({ servicio: await prisma.servicio.findUnique({ where: { id } }) });
+    const antes = await prisma.servicio.findFirst({ where: { id, eliminadoEn: null } });
+    if (!antes) throw new HttpError(404, "no_encontrado", "Servicio no encontrado");
+    await prisma.servicio.update({ where: { id: antes.id }, data: parsed.data });
+    const despues = await prisma.servicio.findUniqueOrThrow({ where: { id } });
+    const cambios = diferencias(antes, despues, CAMPOS_CLAVE.servicio);
+    if (cambios) {
+      await registrarActividad({
+        usuarioId,
+        accion: "servicio.editar",
+        entidad: "servicio",
+        entidadId: id,
+        resumen: `Editó el servicio ${despues.nombre}`,
+        cambios,
+      });
+    }
+    res.json({ servicio: despues });
   }),
 );
 
@@ -68,12 +89,17 @@ serviciosRouter.delete(
   "/:id",
   requireRole("ADMIN"),
   ruta(async (req, res) => {
-    sesionDe(res);
-    const { count } = await prisma.servicio.updateMany({
-      where: { id: String(req.params.id), eliminadoEn: null },
-      data: { eliminadoEn: new Date() },
+    const { usuarioId } = sesionDe(res);
+    const actual = await prisma.servicio.findFirst({ where: { id: String(req.params.id), eliminadoEn: null } });
+    if (!actual) throw new HttpError(404, "no_encontrado", "Servicio no encontrado");
+    await prisma.servicio.update({ where: { id: actual.id }, data: { eliminadoEn: new Date() } });
+    await registrarActividad({
+      usuarioId,
+      accion: "servicio.eliminar",
+      entidad: "servicio",
+      entidadId: actual.id,
+      resumen: `Eliminó (lógicamente) el servicio ${actual.nombre}`,
     });
-    if (count === 0) throw new HttpError(404, "no_encontrado", "Servicio no encontrado");
     res.status(204).end();
   }),
 );

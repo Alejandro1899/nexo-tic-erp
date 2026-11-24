@@ -9,6 +9,7 @@ import {
 } from "@nexo/shared";
 import { aplicarTasaPb, calcularAnticipo, calcularTotales, importeLinea } from "@nexo/shared";
 import { ruta } from "../../lib/async.js";
+import { CAMPOS_CLAVE, diferencias, registrarActividad } from "../../lib/bitacora.js";
 import { prisma } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { requireAuth } from "../../middleware/auth.js";
@@ -243,6 +244,13 @@ cotizacionesRouter.post(
         include: incluirDetalle,
       });
     });
+    await registrarActividad({
+      usuarioId: sesion.usuarioId,
+      accion: "cotizacion.crear",
+      entidad: "cotizacion",
+      entidadId: cotizacion.id,
+      resumen: `Creó la cotización ${cotizacion.folio} para ${cotizacion.cliente.nombre}`,
+    });
     res.status(201).json({ cotizacion: vistaCotizacion(cotizacion, sesion.rol) });
   }),
 );
@@ -300,6 +308,17 @@ cotizacionesRouter.patch(
         include: incluirDetalle,
       });
     });
+    const cambios = diferencias(actual, cotizacion, CAMPOS_CLAVE.cotizacion);
+    if (cambios) {
+      await registrarActividad({
+        usuarioId: sesion.usuarioId,
+        accion: "cotizacion.editar",
+        entidad: "cotizacion",
+        entidadId: cotizacion.id,
+        resumen: `Editó la cotización ${cotizacion.folio}`,
+        cambios,
+      });
+    }
     res.json({ cotizacion: vistaCotizacion(cotizacion, sesion.rol) });
   }),
 );
@@ -320,6 +339,14 @@ cotizacionesRouter.post(
       data: { estado: "ENVIADA", enviadaEn: new Date() },
       include: incluirDetalle,
     });
+    await registrarActividad({
+      usuarioId: sesion.usuarioId,
+      accion: "cotizacion.enviar",
+      entidad: "cotizacion",
+      entidadId: cotizacion.id,
+      resumen: `Envió a autorización la cotización ${cotizacion.folio}`,
+      cambios: { estado: { antes: actual.estado, despues: "ENVIADA" } },
+    });
     res.json({ cotizacion: vistaCotizacion(cotizacion, sesion.rol) });
   }),
 );
@@ -336,11 +363,20 @@ async function decidir(id: string, sesion: SesionAutenticada, nuevoEstado: "APRO
   if (estadoMostrado(actual) === "VENCIDA") {
     throw new HttpError(409, "vencida", "La vigencia de la cotización ya venció; hay que crear una nueva");
   }
-  return prisma.cotizacion.update({
+  const decidida = await prisma.cotizacion.update({
     where: { id: actual.id },
     data: { estado: nuevoEstado, autorizadaPorId: sesion.usuarioId, autorizadaEn: new Date() },
     include: incluirDetalle,
   });
+  await registrarActividad({
+    usuarioId: sesion.usuarioId,
+    accion: nuevoEstado === "APROBADA" ? "cotizacion.aprobar" : "cotizacion.rechazar",
+    entidad: "cotizacion",
+    entidadId: decidida.id,
+    resumen: `${nuevoEstado === "APROBADA" ? "Aprobó" : "Rechazó"} la cotización ${decidida.folio}`,
+    cambios: { estado: { antes: actual.estado, despues: nuevoEstado } },
+  });
+  return decidida;
 }
 
 cotizacionesRouter.post(
@@ -390,6 +426,14 @@ cotizacionesRouter.post(
           : { estado: "RECHAZADA", autorizadaPorId: sesion.usuarioId, autorizadaEn: new Date() },
       include: incluirDetalle,
     });
+    await registrarActividad({
+      usuarioId: sesion.usuarioId,
+      accion: "cotizacion.cambiar_estado",
+      entidad: "cotizacion",
+      entidadId: cotizacion.id,
+      resumen: `Cambió el estado de la cotización ${cotizacion.folio} de ${actual.estado} a ${nuevo}`,
+      cambios: { estado: { antes: actual.estado, despues: nuevo } },
+    });
     res.json({ cotizacion: vistaCotizacion(cotizacion, sesion.rol) });
   }),
 );
@@ -407,6 +451,13 @@ cotizacionesRouter.delete(
       throw new HttpError(409, "no_eliminable", "Solo se pueden eliminar borradores");
     }
     await prisma.cotizacion.update({ where: { id: actual.id }, data: { eliminadoEn: new Date() } });
+    await registrarActividad({
+      usuarioId: sesion.usuarioId,
+      accion: "cotizacion.eliminar",
+      entidad: "cotizacion",
+      entidadId: actual.id,
+      resumen: `Eliminó el borrador ${actual.folio}`,
+    });
     res.status(204).end();
   }),
 );

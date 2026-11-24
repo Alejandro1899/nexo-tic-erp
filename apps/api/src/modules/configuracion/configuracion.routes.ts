@@ -1,6 +1,7 @@
 import express, { Router } from "express";
 import { ConfiguracionActualizarSchema, LOGO_MAX_BYTES } from "@nexo/shared";
 import { ruta } from "../../lib/async.js";
+import { CAMPOS_CLAVE, diferencias, registrarActividad } from "../../lib/bitacora.js";
 import { prisma } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { obtenerConfiguracion, vistaConfiguracion } from "../../lib/configuracion.js";
@@ -45,11 +46,22 @@ configuracionRouter.patch(
     if (!parsed.success) {
       throw new HttpError(400, "datos_invalidos", parsed.error.issues[0]?.message ?? "Datos inválidos");
     }
-    await obtenerConfiguracion();
+    const antes = await obtenerConfiguracion();
     const c = await prisma.configuracionEmpresa.update({
       where: { id: "empresa" },
       data: { ...parsed.data, actualizadoPorId: usuarioId },
     });
+    const cambios = diferencias(antes, c, CAMPOS_CLAVE.configuracion);
+    if (cambios) {
+      await registrarActividad({
+        usuarioId,
+        accion: "configuracion.editar",
+        entidad: "configuracion",
+        entidadId: "empresa",
+        resumen: "Editó los datos de la empresa",
+        cambios,
+      });
+    }
     res.json({ configuracion: vistaConfiguracion(c) });
   }),
 );
@@ -80,6 +92,13 @@ configuracionRouter.put(
       where: { id: "empresa" },
       data: { logoPng: bytes, actualizadoPorId: usuarioId },
     });
+    await registrarActividad({
+      usuarioId,
+      accion: "configuracion.editar",
+      entidad: "configuracion",
+      entidadId: "empresa",
+      resumen: "Cambió el logo de la empresa",
+    });
     res.json({ configuracion: vistaConfiguracion(c) });
   }),
 );
@@ -93,6 +112,13 @@ configuracionRouter.delete(
     const c = await prisma.configuracionEmpresa.update({
       where: { id: "empresa" },
       data: { logoPng: null, actualizadoPorId: usuarioId },
+    });
+    await registrarActividad({
+      usuarioId,
+      accion: "configuracion.editar",
+      entidad: "configuracion",
+      entidadId: "empresa",
+      resumen: "Quitó el logo de la empresa",
     });
     res.json({ configuracion: vistaConfiguracion(c) });
   }),
