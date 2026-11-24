@@ -183,9 +183,10 @@ export function CotizacionDetalle() {
             <th>Concepto</th>
             <th>Cantidad</th>
             <th>Precio</th>
+            <th>Desc. %</th>
             <th>Descuento</th>
             {esAdminODireccion && <th>Costo (interno)</th>}
-            <th>Importe</th>
+            <th>Importe neto</th>
           </tr>
         </thead>
         <tbody>
@@ -194,16 +195,17 @@ export function CotizacionDetalle() {
               <td>{p.descripcion}</td>
               <td>{p.cantidadMilesimas / 1000}</td>
               <td>{formatearMXN(p.precioUnitarioCentavos)}</td>
+              <td>{p.descuentoPb / 100} %</td>
               <td>{formatearMXN(p.descuentoCentavos)}</td>
               {esAdminODireccion && <td>{p.costoUnitarioCentavos == null ? "—" : formatearMXN(p.costoUnitarioCentavos)}</td>}
-              <td>{formatearMXN(p.importeCentavos)}</td>
+              <td>{formatearMXN(p.importeCentavos - p.descuentoCentavos)}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
       <dl className="detalle totales">
-        <dt>Subtotal</dt>
+        <dt>Subtotal (antes de descuento)</dt>
         <dd>{formatearMXN(cotizacion.subtotalCentavos)}</dd>
         <dt>Descuento</dt>
         <dd>{formatearMXN(cotizacion.descuentoCentavos)}</dd>
