@@ -159,6 +159,15 @@ export const CotizacionActualizarSchema = z
   })
   .strict();
 
+/** Cambio manual de estado por ADMIN y DIRECCION: aprobada → rechazada o borrador; rechazada → borrador. */
+export const CotizacionCambiarEstadoSchema = z.object({ estado: z.enum(["BORRADOR", "RECHAZADA"]) }).strict();
+
+/** Transiciones manuales permitidas (desde → hacia). Las demás pasan por enviar, aprobar o rechazar. */
+export const TRANSICIONES_MANUALES: Record<string, Array<"BORRADOR" | "RECHAZADA">> = {
+  APROBADA: ["RECHAZADA", "BORRADOR"],
+  RECHAZADA: ["BORRADOR"],
+};
+
 export type CotizacionCrear = z.infer<typeof CotizacionCrearSchema>;
 export type CotizacionPartida = z.infer<typeof CotizacionPartidaSchema>;
 

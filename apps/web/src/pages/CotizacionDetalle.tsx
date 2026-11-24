@@ -69,10 +69,10 @@ export function CotizacionDetalle() {
     void cargar();
   }, [cargar]);
 
-  async function accion(ruta: string, metodo: "POST" | "DELETE", confirmar?: string) {
+  async function accion(ruta: string, metodo: "POST" | "DELETE", confirmar?: string, cuerpo?: unknown) {
     if (confirmar && !window.confirm(confirmar)) return;
     try {
-      await api(ruta, { method: metodo });
+      await api(ruta, { method: metodo, body: cuerpo });
       if (metodo === "DELETE") navigate("/cotizaciones", { replace: true });
       else await cargar();
     } catch (e) {
@@ -126,6 +126,37 @@ export function CotizacionDetalle() {
             <button onClick={() => void accion(`/api/cotizaciones/${cotizacion.id}/aprobar`, "POST", "¿Aprobar esta cotización?")}>Aprobar</button>
             <button onClick={() => void accion(`/api/cotizaciones/${cotizacion.id}/rechazar`, "POST", "¿Rechazar esta cotización?")}>Rechazar</button>
           </>
+        )}
+        {cotizacion.estado === "APROBADA" && esAdminODireccion && (
+          <>
+            <button
+              onClick={() =>
+                void accion(`/api/cotizaciones/${cotizacion.id}/cambiar-estado`, "POST", "¿Pasar esta cotización aprobada a rechazada?", { estado: "RECHAZADA" })
+              }
+            >
+              Pasar a rechazada
+            </button>
+            <button
+              onClick={() =>
+                void accion(`/api/cotizaciones/${cotizacion.id}/cambiar-estado`, "POST", "¿Regresar esta cotización a borrador? Habrá que volver a enviarla.", {
+                  estado: "BORRADOR",
+                })
+              }
+            >
+              Regresar a borrador
+            </button>
+          </>
+        )}
+        {cotizacion.estado === "RECHAZADA" && esAdminODireccion && (
+          <button
+            onClick={() =>
+              void accion(`/api/cotizaciones/${cotizacion.id}/cambiar-estado`, "POST", "¿Regresar esta cotización a borrador? Habrá que volver a enviarla.", {
+                estado: "BORRADOR",
+              })
+            }
+          >
+            Regresar a borrador
+          </button>
         )}
         {esBorrador && puedeGestionar && (
           <button onClick={() => void accion(`/api/cotizaciones/${cotizacion.id}`, "DELETE", "¿Eliminar este borrador?")}>Eliminar</button>

@@ -1,6 +1,12 @@
 import { Router } from "express";
 import type { Prisma } from "@prisma/client";
-import { CotizacionActualizarSchema, CotizacionCrearSchema, type CotizacionPartida } from "@nexo/shared";
+import {
+  CotizacionActualizarSchema,
+  CotizacionCambiarEstadoSchema,
+  CotizacionCrearSchema,
+  TRANSICIONES_MANUALES,
+  type CotizacionPartida,
+} from "@nexo/shared";
 import { aplicarTasaPb, calcularAnticipo, calcularTotales, importeLinea } from "@nexo/shared";
 import { ruta } from "../../lib/async.js";
 import { prisma } from "../../lib/db.js";
@@ -351,6 +357,39 @@ cotizacionesRouter.post(
   ruta(async (req, res) => {
     const sesion = sesionDe(res);
     const cotizacion = await decidir(String(req.params.id), sesion, "RECHAZADA");
+    res.json({ cotizacion: vistaCotizacion(cotizacion, sesion.rol) });
+  }),
+);
+
+/**
+ * Cambio manual de estado: solo ADMIN y DIRECCION. Permite revertir una aprobada a rechazada o a borrador,
+ * y una rechazada a borrador. Al volver a borrador se limpian la fecha de envío y la autorización.
+ */
+cotizacionesRouter.post(
+  "/:id/cambiar-estado",
+  ruta(async (req, res) => {
+    const sesion = sesionDe(res);
+    if (sesion.rol !== "ADMIN" && sesion.rol !== "DIRECCION") {
+      throw new HttpError(403, "prohibido", "Solo ADMIN o DIRECCION pueden cambiar el estado de una cotización");
+    }
+    const parsed = CotizacionCambiarEstadoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new HttpError(400, "datos_invalidos", parsed.error.issues[0]?.message ?? "Datos inválidos");
+    }
+    const actual = await cotizacionVigente(String(req.params.id));
+    const permitidos = TRANSICIONES_MANUALES[actual.estado] ?? [];
+    if (!permitidos.includes(parsed.data.estado)) {
+      throw new HttpError(409, "transicion_invalida", `No se puede pasar de ${actual.estado} a ${parsed.data.estado} con este cambio`);
+    }
+    const nuevo = parsed.data.estado;
+    const cotizacion = await prisma.cotizacion.update({
+      where: { id: actual.id },
+      data:
+        nuevo === "BORRADOR"
+          ? { estado: "BORRADOR", enviadaEn: null, autorizadaPorId: null, autorizadaEn: null }
+          : { estado: "RECHAZADA", autorizadaPorId: sesion.usuarioId, autorizadaEn: new Date() },
+      include: incluirDetalle,
+    });
     res.json({ cotizacion: vistaCotizacion(cotizacion, sesion.rol) });
   }),
 );
