@@ -127,3 +127,8 @@ button.chip.activo { background: #0b5cd5; color: #fff; border-color: #0b5cd5; }
   .sidebar-usuario button { width: 100%; margin-top: 0.5rem; }
   .sidebar-velo { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); z-index: 40; }
 }
+
+/* Botón para elegir un archivo (la entrada real va oculta dentro de la etiqueta) */
+.boton-archivo { display: inline-block; margin-top: 0.5rem; padding: 0.45rem 0.9rem; border-radius: 6px; background: #0b5cd5; color: #fff; cursor: pointer; font: inherit; }
+.boton-archivo:hover { background: #0a4fb8; }
+.boton-archivo:has(input:disabled) { opacity: 0.6; cursor: default; }
