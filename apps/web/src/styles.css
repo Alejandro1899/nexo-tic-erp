@@ -115,9 +115,9 @@ button.chip.activo { background: #0b5cd5; color: #fff; border-color: #0b5cd5; }
 @media print { .sidebar { display: none !important; } }
 
 /* Menú móvil: barra superior con hamburguesa y cajón lateral */
-.topbar-movil { display: none; }
+.app .topbar-movil { display: none; }
 @media (max-width: 900px) {
-  .topbar-movil { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.8rem; background: #1F3A5F; color: #fff; font-weight: 700; }
+  .app .topbar-movil { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.8rem; background: #1F3A5F; color: #fff; font-weight: 700; }
   .hamburguesa { background: transparent; color: #fff; padding: 0.3rem 0.4rem; line-height: 0; }
   .sidebar { position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; width: 260px; max-width: 85%; height: 100vh; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 1rem; padding: 1rem 0.75rem; transform: translateX(-100%); transition: transform 0.2s ease; overflow-y: auto; }
   .sidebar.abierto { transform: none; box-shadow: 4px 0 16px rgba(0, 0, 0, 0.25); }
