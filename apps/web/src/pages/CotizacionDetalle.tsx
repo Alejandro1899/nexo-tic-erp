@@ -179,7 +179,7 @@ export function CotizacionDetalle() {
         <dt>IVA 16 %</dt>
         <dd>{formatearMXN(cotizacion.ivaCentavos)}</dd>
         <dt>Total</dt>
-        <dd>
+        <dd className="total-final">
           <strong>{formatearMXN(cotizacion.totalCentavos)}</strong>
         </dd>
         <dt>Anticipo ({cotizacion.anticipoPb / 100} %)</dt>

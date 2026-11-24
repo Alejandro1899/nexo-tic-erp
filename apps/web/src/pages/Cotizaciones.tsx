@@ -71,19 +71,16 @@ export function Cotizaciones() {
     <section>
       <div className="barra">
         <h2>Cotizaciones</h2>
-        <select value={estado} onChange={(e) => setEstado(e.target.value)} aria-label="Filtrar por estado">
-          <option value="">Todos los estados</option>
-          {Object.keys(ETIQUETA_COTIZACION)
-            .filter((k) => k !== "VENCIDA")
-            .map((k) => (
-              <option key={k} value={k}>
-                {ETIQUETA_COTIZACION[k]}
-              </option>
-            ))}
-        </select>
         {!creando && <button onClick={() => setCreando(true)}>Nueva cotización</button>}
       </div>
       {error && <p className="error">{error}</p>}
+      <div className="chips" role="group" aria-label="Filtrar por estado">
+        {[{ valor: "", etiqueta: "Todas" }, ...["BORRADOR", "ENVIADA", "APROBADA", "RECHAZADA"].map((k) => ({ valor: k, etiqueta: ETIQUETA_COTIZACION[k] }))].map((o) => (
+          <button key={o.valor || "todas"} type="button" className={`chip${estado === o.valor ? " activo" : ""}`} onClick={() => setEstado(o.valor)} aria-pressed={estado === o.valor}>
+            {o.etiqueta}
+          </button>
+        ))}
+      </div>
 
       {creando && (
         <CotizacionFormulario
@@ -116,10 +113,10 @@ export function Cotizaciones() {
               <td>
                 <Link to={`/clientes/${c.cliente.id}`}>{c.cliente.nombre}</Link>
               </td>
-              <td>{formatearMXN(c.subtotalCentavos)}</td>
-              <td>{formatearMXN(c.descuentoCentavos)}</td>
-              <td>{formatearMXN(c.ivaCentavos)}</td>
-              <td>
+              <td className="num">{formatearMXN(c.subtotalCentavos)}</td>
+              <td className="num">{formatearMXN(c.descuentoCentavos)}</td>
+              <td className="num">{formatearMXN(c.ivaCentavos)}</td>
+              <td className="num">
                 <strong>{formatearMXN(c.totalCentavos)}</strong>
               </td>
               <td>{new Date(c.vigenciaHasta).toLocaleDateString("es-MX")}</td>

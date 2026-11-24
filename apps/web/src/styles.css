@@ -82,3 +82,48 @@ button:disabled { opacity: 0.6; }
 .hoja-firma { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; }
 .hoja-linea { border-bottom: 1px solid #0b1f3a; height: 2.5rem; }
 @media (max-width: 600px) { .hoja-firmas { grid-template-columns: 1fr; } }
+
+/* Rediseño Catálogo y Cotizaciones */
+.contador { margin: -0.5rem 0 0.75rem; color: #5b6472; font-size: 0.9rem; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+button.chip { background: #fff; color: #1b2430; border: 1px solid #c5ced9; border-radius: 999px; padding: 0.3rem 0.8rem; font-size: 0.85rem; }
+button.chip.activo { background: #0b5cd5; color: #fff; border-color: #0b5cd5; }
+.totales .total-final strong { font-size: 1.1rem; color: #0b1f3a; }
+
+/* Barra lateral (rediseño): sustituye al encabezado superior */
+.app { display: flex; min-height: 100vh; }
+.app > main { flex: 1 1 auto; min-width: 0; }
+.sidebar { width: 220px; flex: 0 0 220px; background: #1F3A5F; color: #fff; display: flex; flex-direction: column; gap: 1rem; padding: 1rem 0.75rem; position: sticky; top: 0; height: 100vh; }
+.sidebar-marca { display: flex; align-items: center; gap: 0.6rem; padding: 0.25rem 0.5rem; font-weight: 700; letter-spacing: 0.02em; }
+.sidebar-marca small { display: block; font-weight: 400; font-size: 0.7rem; color: #a9c4ea; }
+.sidebar-logo { width: 34px; height: 34px; border-radius: 8px; background: #3B82F6; display: grid; place-items: center; font-weight: 800; }
+.sidebar nav { display: flex; flex-direction: column; gap: 0.2rem; }
+.sidebar nav a { color: #cfdcf0; text-decoration: none; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.95rem; }
+.sidebar nav a:hover { background: rgba(255, 255, 255, 0.08); }
+.sidebar nav a.active { background: #3B82F6; color: #fff; font-weight: 600; }
+.sidebar-usuario { margin-top: auto; font-size: 0.8rem; color: #cfdcf0; padding: 0.6rem 0.5rem 0; border-top: 1px solid rgba(255, 255, 255, 0.15); }
+.sidebar-usuario button { margin-top: 0.5rem; width: 100%; background: rgba(255, 255, 255, 0.12); color: #fff; }
+@media (max-width: 900px) {
+  .app { flex-direction: column; }
+  .sidebar { width: auto; flex: none; height: auto; position: static; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 0.6rem 0.8rem; gap: 0.5rem 1rem; }
+  .sidebar nav { flex-direction: row; flex-wrap: wrap; }
+  .sidebar-marca small { display: none; }
+  .sidebar-usuario { margin-top: 0; border-top: 0; padding: 0; display: flex; gap: 0.5rem; align-items: center; }
+  .sidebar-usuario button { width: auto; margin-top: 0; }
+}
+@media print { .sidebar { display: none !important; } }
+
+/* Menú móvil: barra superior con hamburguesa y cajón lateral */
+.topbar-movil { display: none; }
+@media (max-width: 900px) {
+  .topbar-movil { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.8rem; background: #1F3A5F; color: #fff; font-weight: 700; }
+  .hamburguesa { background: transparent; color: #fff; padding: 0.3rem 0.4rem; line-height: 0; }
+  .sidebar { position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; width: 260px; max-width: 85%; height: 100vh; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 1rem; padding: 1rem 0.75rem; transform: translateX(-100%); transition: transform 0.2s ease; overflow-y: auto; }
+  .sidebar.abierto { transform: none; box-shadow: 4px 0 16px rgba(0, 0, 0, 0.25); }
+  .sidebar-marca small { display: block; }
+  .sidebar nav { flex-direction: column; flex-wrap: nowrap; }
+  .sidebar-usuario { margin-top: auto; border-top: 1px solid rgba(255, 255, 255, 0.15); padding: 0.6rem 0.5rem 0; display: block; }
+  .sidebar-usuario button { width: 100%; margin-top: 0.5rem; }
+  .sidebar-velo { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); z-index: 40; }
+}
